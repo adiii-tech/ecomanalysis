@@ -1,0 +1,19 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Level 3 is clean today. Levels 4+ are dominated by "unnecessary nullsafe"
+    # reports on Eloquent relations, which Laravel types as non-nullable even
+    # though a missing related row is normal — the defensive `?->` stays.
+    level: 3
+
+    paths:
+        - app
+        - database/seeders
+        - database/factories
+        - routes
+
+    # The rollup and report layers pass arrays of mixed metric values around by
+    # design; the shape is documented on each method rather than typed.
+    treatPhpDocTypesAsCertain: false
+

@@ -1,0 +1,232 @@
+{
+  "node_modules/laravel-vite-plugin/inertia-helpers/index.js": [],
+  "resources/js/components/app/bar-list.tsx": [
+    "/build/assets/bar-list-CSlL2QKm.js"
+  ],
+  "resources/js/components/app/caveat-note.tsx": [
+    "/build/assets/caveat-note-Dr_rbZyQ.js"
+  ],
+  "resources/js/components/app/channel-filter.tsx": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/components/app/chart-card.tsx": [
+    "/build/assets/chart-card-CZPTjzl-.js"
+  ],
+  "resources/js/components/app/chart-insight.tsx": [
+    "/build/assets/chart-card-CZPTjzl-.js"
+  ],
+  "resources/js/components/app/command-palette.tsx": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/components/app/data-table.tsx": [
+    "/build/assets/data-table-CQdRzZJF.js"
+  ],
+  "resources/js/components/app/date-range-picker.tsx": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/components/app/delta-chip.tsx": [
+    "/build/assets/delta-chip-CWzaPomV.js"
+  ],
+  "resources/js/components/app/drilldown-drawer.tsx": [
+    "/build/assets/drilldown-drawer-B3VTT9x2.js"
+  ],
+  "resources/js/components/app/empty-state.tsx": [
+    "/build/assets/empty-state-DjIQjBC7.js"
+  ],
+  "resources/js/components/app/funnel.tsx": [
+    "/build/assets/funnel-CayeUjz3.js"
+  ],
+  "resources/js/components/app/kpi-card.tsx": [
+    "/build/assets/kpi-card-CF3GcgfJ.js"
+  ],
+  "resources/js/components/app/orders-drilldown.tsx": [
+    "/build/assets/show-ChuOMWPc.js"
+  ],
+  "resources/js/components/app/permission-guard.tsx": [
+    "/build/assets/permission-guard-B2YFsnLX.js"
+  ],
+  "resources/js/components/app/returns-basis-toggle.tsx": [
+    "/build/assets/returns-basis-toggle-Hux1TInn.js"
+  ],
+  "resources/js/components/app/saved-views.tsx": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/components/app/stat-strip.tsx": [
+    "/build/assets/stat-strip-Bf4c-qAu.js"
+  ],
+  "resources/js/components/app/sync-indicator.tsx": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/components/app/verdict-note.tsx": [
+    "/build/assets/chart-card-CZPTjzl-.js"
+  ],
+  "resources/js/components/charts/chart-primitives.tsx": [
+    "/build/assets/chart-primitives-ChBp4vNI.js"
+  ],
+  "resources/js/components/charts/waterfall-chart.tsx": [
+    "/build/assets/waterfall-chart-CcaRf_l7.js"
+  ],
+  "resources/js/components/dashboard/health-flags.tsx": [
+    "/build/assets/dashboard-BuAOXnoa.js"
+  ],
+  "resources/js/components/dashboard/sales-journey.tsx": [
+    "/build/assets/dashboard-BuAOXnoa.js"
+  ],
+  "resources/js/components/dashboard/sales-summary-table.tsx": [
+    "/build/assets/sales-summary-table-CJxS4gRN.js"
+  ],
+  "resources/js/components/reports/report-section.tsx": [
+    "/build/assets/report-section-CBf1J4XS.js"
+  ],
+  "resources/js/components/ui/badge.tsx": [
+    "/build/assets/badge-CFyLZ3R-.js"
+  ],
+  "resources/js/components/ui/button.tsx": [
+    "/build/assets/input-C0zE_xzz.js"
+  ],
+  "resources/js/components/ui/card.tsx": [
+    "/build/assets/card-DJDNvUnK.js"
+  ],
+  "resources/js/components/ui/dropdown-menu.tsx": [
+    "/build/assets/empty-state-DjIQjBC7.js"
+  ],
+  "resources/js/components/ui/input.tsx": [
+    "/build/assets/input-C0zE_xzz.js"
+  ],
+  "resources/js/components/ui/popover.tsx": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/components/ui/select.tsx": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/components/ui/separator.tsx": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/components/ui/sheet.tsx": [
+    "/build/assets/sheet-BNOmNaqW.js"
+  ],
+  "resources/js/components/ui/skeleton.tsx": [
+    "/build/assets/skeleton-DUakt-29.js"
+  ],
+  "resources/js/components/ui/switch.tsx": [
+    "/build/assets/switch-CfwX-tOM.js"
+  ],
+  "resources/js/components/ui/tabs.tsx": [
+    "/build/assets/tabs-CadgG3dj.js"
+  ],
+  "resources/js/components/ui/tooltip.tsx": [
+    "/build/assets/chart-card-CZPTjzl-.js"
+  ],
+  "resources/js/hooks/use-appearance.ts": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/hooks/use-export.ts": [
+    "/build/assets/chart-card-CZPTjzl-.js"
+  ],
+  "resources/js/hooks/use-filters.tsx": [
+    "/build/assets/empty-state-DjIQjBC7.js"
+  ],
+  "resources/js/hooks/use-permissions.ts": [
+    "/build/assets/empty-state-DjIQjBC7.js"
+  ],
+  "resources/js/hooks/use-widget.ts": [
+    "/build/assets/use-widget-CMYArvtl.js"
+  ],
+  "resources/js/layouts/app-layout.tsx": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/layouts/auth-layout.tsx": [
+    "/build/assets/auth-layout-DuLD23aV.js"
+  ],
+  "resources/js/lib/api.ts": [
+    "/build/assets/empty-state-DjIQjBC7.js"
+  ],
+  "resources/js/lib/format.ts": [
+    "/build/assets/card-DJDNvUnK.js"
+  ],
+  "resources/js/lib/navigation.ts": [
+    "/build/assets/app-layout-Drf1OqZl.js"
+  ],
+  "resources/js/lib/utils.ts": [
+    "/build/assets/utils-BVTyW6jK.js"
+  ],
+  "resources/js/pages/admin/users.tsx": [
+    "/build/assets/users-42fA1qpS.js"
+  ],
+  "resources/js/pages/ai/index.tsx": [
+    "/build/assets/ai-DC5VZrP6.js"
+  ],
+  "resources/js/pages/ai/shared.tsx": [
+    "/build/assets/shared-DHnEKQMw.js"
+  ],
+  "resources/js/pages/alerts/index.tsx": [
+    "/build/assets/alerts-ty-D71eX.js"
+  ],
+  "resources/js/pages/auth/accept-invite.tsx": [
+    "/build/assets/accept-invite-BBt3reCC.js"
+  ],
+  "resources/js/pages/auth/change-password.tsx": [
+    "/build/assets/change-password-CBQalmv3.js"
+  ],
+  "resources/js/pages/auth/forgot-password.tsx": [
+    "/build/assets/forgot-password-Cfoohqrn.js"
+  ],
+  "resources/js/pages/auth/login.tsx": [
+    "/build/assets/login-DoJfw-fZ.js"
+  ],
+  "resources/js/pages/auth/mfa-challenge.tsx": [
+    "/build/assets/mfa-challenge-CCB7tRy9.js"
+  ],
+  "resources/js/pages/auth/reset-password.tsx": [
+    "/build/assets/reset-password-M6vLN0PU.js"
+  ],
+  "resources/js/pages/catalog/index.tsx": [
+    "/build/assets/catalog-B1pFs9RB.js"
+  ],
+  "resources/js/pages/connectors/index.tsx": [
+    "/build/assets/connectors-2YCqwZSE.js"
+  ],
+  "resources/js/pages/customers/explorer.tsx": [
+    "/build/assets/explorer-CRsVKBZA.js"
+  ],
+  "resources/js/pages/customers/index.tsx": [
+    "/build/assets/customers-AVlokR1e.js"
+  ],
+  "resources/js/pages/customers/show.tsx": [
+    "/build/assets/show-NUEyE1KQ.js"
+  ],
+  "resources/js/pages/dashboard/index.tsx": [
+    "/build/assets/dashboard-BuAOXnoa.js"
+  ],
+  "resources/js/pages/finance/index.tsx": [
+    "/build/assets/finance-BA4MJS5s.js"
+  ],
+  "resources/js/pages/instagram/index.tsx": [
+    "/build/assets/instagram-Chhi1bSi.js"
+  ],
+  "resources/js/pages/marketing/index.tsx": [
+    "/build/assets/marketing-BTLoGH-g.js"
+  ],
+  "resources/js/pages/marketplace/index.tsx": [
+    "/build/assets/marketplace-CqXHiDBH.js"
+  ],
+  "resources/js/pages/onboarding/index.tsx": [
+    "/build/assets/onboarding-CzWE374p.js"
+  ],
+  "resources/js/pages/operations/index.tsx": [
+    "/build/assets/operations-B3_kOQVv.js"
+  ],
+  "resources/js/pages/reports/index.tsx": [
+    "/build/assets/reports-jh4n1ic9.js"
+  ],
+  "resources/js/pages/reports/shared.tsx": [
+    "/build/assets/shared-Bd9nwEXI.js"
+  ],
+  "resources/js/pages/reports/show.tsx": [
+    "/build/assets/show-ChuOMWPc.js"
+  ],
+  "resources/js/pages/settings/profile.tsx": [
+    "/build/assets/profile-B97WfPF4.js"
+  ],
+  "resources/js/ssr.tsx": []
+}
