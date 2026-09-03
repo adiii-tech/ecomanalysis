@@ -11,8 +11,7 @@ use Spatie\Activitylog\Models\Activity as BaseActivity;
 /**
  * The audit trail is per tenant: one brand's admin must never read another's
  * exports, permission changes or connector activity.
- */
-/**
+ *
  * @property int $id
  * @property ?int $tenant_id
  * @property ?string $log_name

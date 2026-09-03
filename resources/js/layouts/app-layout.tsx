@@ -262,12 +262,18 @@ export function AppLayout({
                                 </div>
                             </div>
 
-                            {showFilters && (
+                            {/* A page with no date filters still has actions, so this row
+                                renders whenever there is anything to put in it. */}
+                            {(showFilters || actions) && (
                                 <div className="flex flex-wrap items-center gap-2 border-t border-border/70 px-4 py-2 sm:px-6">
-                                    <DateRangePicker />
-                                    <ChannelFilter />
-                                    <SavedViews surface={surface ?? surfaceFromUrl(currentUrl)} />
-                                    {filterExtras}
+                                    {showFilters && (
+                                        <>
+                                            <DateRangePicker />
+                                            <ChannelFilter />
+                                            <SavedViews surface={surface ?? surfaceFromUrl(currentUrl)} />
+                                            {filterExtras}
+                                        </>
+                                    )}
                                     <div className="ml-auto flex items-center gap-1.5">
                                         {actions}
                                         <Button

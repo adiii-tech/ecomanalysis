@@ -74,6 +74,18 @@ Route::middleware(['auth'])->group(function (): void {
         ->middleware('permission.widget:reports.library.view')
         ->name('reports.show');
 
+    Route::get('inventory', fn () => Inertia::render('inventory/index'))
+        ->middleware('permission.widget:catalog.stock.view')
+        ->name('inventory');
+
+    Route::get('inventory/purchasing', fn () => Inertia::render('inventory/purchasing'))
+        ->middleware('permission.widget:catalog.purchase_orders.view')
+        ->name('inventory.purchasing');
+
+    Route::get('inventory/counts', fn () => Inertia::render('inventory/counts'))
+        ->middleware('permission.widget:catalog.stock_counts.view')
+        ->name('inventory.counts');
+
     Route::get('admin/users', fn () => Inertia::render('admin/users'))
         ->middleware('permission.widget:admin.users.view')
         ->name('admin.users');

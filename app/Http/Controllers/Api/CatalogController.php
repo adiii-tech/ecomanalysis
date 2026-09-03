@@ -19,6 +19,7 @@ use App\Support\Verdict;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class CatalogController extends Controller
 {
@@ -190,6 +191,95 @@ class CatalogController extends Controller
             ['sku_id' => $model->id, 'cost_price' => $costInPaise],
             message: 'Cost saved. Re-run the rollups to see margin update for past orders.',
         );
+    }
+
+    /**
+     * Creates or edits a SKU by hand.
+     *
+     * SKUs normally arrive from a sales channel, but a brand managing its own
+     * inventory needs to add things the channel has never seen — raw materials,
+     * a line not listed yet, a bundle. Those are marked source "manual" so a
+     * later Shopify sync cannot overwrite them.
+     */
+    public function saveSku(Request $request, ?int $sku = null): JsonResponse
+    {
+        $model = $sku !== null ? Sku::query()->find($sku) : null;
+
+        if ($sku !== null && $model === null) {
+            return ApiResponse::error('SKU not found.', 404);
+        }
+
+        $validated = $request->validate([
+            'sku_code' => [
+                'required', 'string', 'max:120',
+                Rule::unique('skus', 'sku_code')->where('tenant_id', Tenant::id())->ignore($model?->id),
+            ],
+            'name' => ['required', 'string', 'max:190'],
+            'category' => ['nullable', 'string', 'max:120'],
+            'subcategory' => ['nullable', 'string', 'max:120'],
+            'brand' => ['nullable', 'string', 'max:120'],
+            'variant_title' => ['nullable', 'string', 'max:190'],
+            'barcode' => ['nullable', 'string', 'max:64'],
+            'hsn' => ['nullable', 'string', 'max:16'],
+            'gst_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'mrp' => ['nullable', 'numeric', 'min:0'],
+            'selling_price' => ['nullable', 'numeric', 'min:0'],
+            'cost_price' => ['nullable', 'numeric', 'min:0'],
+            'weight_grams' => ['nullable', 'integer', 'min:0'],
+            'image_url' => ['nullable', 'url', 'max:500'],
+            'tracks_inventory' => ['sometimes', 'boolean'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+
+        foreach (['mrp', 'selling_price', 'cost_price'] as $field) {
+            if (isset($validated[$field])) {
+                $validated[$field] = Money::fromRupees((float) $validated[$field]);
+            }
+        }
+
+        $isNew = $model === null;
+        $model ??= new Sku(['tenant_id' => Tenant::id(), 'source' => 'manual']);
+
+        $costChanged = ! $isNew && isset($validated['cost_price']) && (int) $validated['cost_price'] !== (int) $model->cost_price;
+
+        $model->forceFill($validated)->save();
+
+        // A cost typed here has to reach the history too, or margin on past
+        // orders would silently shift with no record of why.
+        if ($isNew || $costChanged) {
+            SkuCostHistory::query()->updateOrCreate(
+                ['tenant_id' => $model->tenant_id, 'sku_id' => $model->id, 'effective_from' => now()->toDateString()],
+                ['cost_price' => (int) $model->cost_price, 'note' => $isNew ? 'Set when the SKU was created' : 'Edited on the SKU'],
+            );
+        }
+
+        activity('catalog')->performedOn($model)
+            ->withProperties(['sku_code' => $model->sku_code, 'created' => $isNew])
+            ->log($isNew ? 'sku.created' : 'sku.updated');
+
+        return ApiResponse::ok([
+            'id' => $model->id,
+            'sku_code' => $model->sku_code,
+        ], message: $isNew ? 'SKU created.' : 'SKU updated.');
+    }
+
+    /**
+     * Retires a SKU rather than deleting it — orders, movements and rollups all
+     * point at it, and history should not develop holes.
+     */
+    public function archiveSku(int $sku): JsonResponse
+    {
+        $model = Sku::query()->find($sku);
+
+        if ($model === null) {
+            return ApiResponse::error('SKU not found.', 404);
+        }
+
+        $model->forceFill(['is_active' => false])->save();
+
+        activity('catalog')->performedOn($model)->log('sku.archived');
+
+        return ApiResponse::ok(null, message: sprintf('%s archived. Its history stays intact.', $model->sku_code));
     }
 
     public function costHistory(int $sku): JsonResponse

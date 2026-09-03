@@ -13,11 +13,13 @@ use App\Http\Controllers\Api\DrilldownController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\InstagramController;
+use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\MarketingController;
 use App\Http\Controllers\Api\MarketplaceController;
 use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\OperationsController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PurchasingController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SavedViewController;
@@ -214,6 +216,9 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
         Route::get('margin', [CatalogController::class, 'margin'])->middleware('permission.widget:catalog.margin.view')->name('margin');
         Route::get('skus/{sku}/cost-history', [CatalogController::class, 'costHistory'])->middleware('permission.widget:catalog.cost_editor.view')->name('cost-history');
         Route::put('skus/{sku}/cost', [CatalogController::class, 'updateCost'])->middleware('permission.widget:catalog.cost_editor.manage')->name('cost-update');
+        Route::post('skus', [CatalogController::class, 'saveSku'])->middleware('permission.widget:catalog.sku_editor.manage')->name('sku-create');
+        Route::put('skus/{sku}', [CatalogController::class, 'saveSku'])->whereNumber('sku')->middleware('permission.widget:catalog.sku_editor.manage')->name('sku-update');
+        Route::delete('skus/{sku}', [CatalogController::class, 'archiveSku'])->whereNumber('sku')->middleware('permission.widget:catalog.sku_editor.manage')->name('sku-archive');
     });
 
     Route::prefix('connectors')->name('api.connectors.')->group(function (): void {
@@ -225,6 +230,52 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
         Route::get('{connector}/resources/{key}', [ConnectorController::class, 'resources'])->middleware('permission.widget:connectors.credentials.manage')->name('resources');
         Route::post('{connector}/select', [ConnectorController::class, 'select'])->middleware('permission.widget:connectors.credentials.manage')->name('select');
         Route::post('{connector}/sync', [ConnectorController::class, 'sync'])->middleware(['permission.widget:connectors.sync_health.manage', 'throttle:manual-sync'])->name('sync');
+    });
+
+    /*
+    | Inventory a brand actually operates: stock levels, adjustments, the ledger
+    | behind every change, warehouses, counts and transfers. Every write goes
+    | through the StockLedger, so balance and history can never disagree.
+    */
+    Route::prefix('inventory')->name('api.inventory.')->group(function (): void {
+        Route::get('levels', [InventoryController::class, 'levels'])->middleware('permission.widget:catalog.stock.view')->name('levels');
+        Route::post('adjust', [InventoryController::class, 'adjust'])->middleware('permission.widget:catalog.stock.manage')->name('adjust');
+        Route::post('bulk-levels', [InventoryController::class, 'bulkSetLevels'])->middleware('permission.widget:catalog.stock.manage')->name('bulk-levels');
+        Route::get('movements/{sku}', [InventoryController::class, 'movements'])->whereNumber('sku')->middleware('permission.widget:catalog.movements.view')->name('movements');
+        Route::put('settings/{sku}', [InventoryController::class, 'updateSettings'])->whereNumber('sku')->middleware('permission.widget:catalog.stock.manage')->name('settings');
+        Route::get('reconciliation', [InventoryController::class, 'reconciliation'])->middleware('permission.widget:catalog.reconciliation.view')->name('reconciliation');
+
+        Route::get('locations', [InventoryController::class, 'locations'])->middleware('permission.widget:catalog.locations.view')->name('locations');
+        Route::post('locations', [InventoryController::class, 'saveLocation'])->middleware('permission.widget:catalog.locations.manage')->name('locations.store');
+        Route::put('locations/{location}', [InventoryController::class, 'saveLocation'])->whereNumber('location')->middleware('permission.widget:catalog.locations.manage')->name('locations.update');
+        Route::delete('locations/{location}', [InventoryController::class, 'deleteLocation'])->whereNumber('location')->middleware('permission.widget:catalog.locations.manage')->name('locations.destroy');
+
+        Route::post('transfer', [InventoryController::class, 'transfer'])->middleware('permission.widget:catalog.transfers.manage')->name('transfer');
+
+        Route::get('counts', [InventoryController::class, 'counts'])->middleware('permission.widget:catalog.stock_counts.view')->name('counts');
+        Route::post('counts', [InventoryController::class, 'createCount'])->middleware('permission.widget:catalog.stock_counts.manage')->name('counts.store');
+        Route::get('counts/{count}', [InventoryController::class, 'count'])->whereNumber('count')->middleware('permission.widget:catalog.stock_counts.view')->name('counts.show');
+        Route::put('counts/{count}', [InventoryController::class, 'saveCountItems'])->whereNumber('count')->middleware('permission.widget:catalog.stock_counts.manage')->name('counts.save');
+        Route::post('counts/{count}/apply', [InventoryController::class, 'applyCount'])->whereNumber('count')->middleware('permission.widget:catalog.stock_counts.manage')->name('counts.apply');
+    });
+
+    /*
+    | Purchasing: suppliers and purchase orders. Receiving is what re-averages a
+    | SKU's cost, so it lives behind the same permission as the COGS editor.
+    */
+    Route::prefix('purchasing')->name('api.purchasing.')->group(function (): void {
+        Route::get('suppliers', [PurchasingController::class, 'suppliers'])->middleware('permission.widget:catalog.suppliers.view')->name('suppliers');
+        Route::post('suppliers', [PurchasingController::class, 'saveSupplier'])->middleware('permission.widget:catalog.suppliers.manage')->name('suppliers.store');
+        Route::put('suppliers/{supplier}', [PurchasingController::class, 'saveSupplier'])->whereNumber('supplier')->middleware('permission.widget:catalog.suppliers.manage')->name('suppliers.update');
+
+        Route::get('orders', [PurchasingController::class, 'purchaseOrders'])->middleware('permission.widget:catalog.purchase_orders.view')->name('orders');
+        Route::get('orders/suggestions', [PurchasingController::class, 'suggestions'])->middleware('permission.widget:catalog.purchase_orders.view')->name('suggestions');
+        Route::get('orders/{order}', [PurchasingController::class, 'purchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.view')->name('orders.show');
+        Route::post('orders', [PurchasingController::class, 'savePurchaseOrder'])->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.store');
+        Route::put('orders/{order}', [PurchasingController::class, 'savePurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.update');
+        Route::post('orders/{order}/send', [PurchasingController::class, 'sendPurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.send');
+        Route::post('orders/{order}/receive', [PurchasingController::class, 'receivePurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.receive');
+        Route::post('orders/{order}/cancel', [PurchasingController::class, 'cancelPurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.cancel');
     });
 
     /*

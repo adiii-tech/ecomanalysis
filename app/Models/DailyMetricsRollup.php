@@ -13,8 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * The single source of truth for every dashboard number. One row per
  * (tenant, date, channel, payment_mode). Dashboards never touch raw orders.
- */
-/**
+ *
  * @property int $id
  * @property int $tenant_id
  * @property CarbonImmutable $date

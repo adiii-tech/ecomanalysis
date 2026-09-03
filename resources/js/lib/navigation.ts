@@ -3,8 +3,8 @@ import {
     Bell,
     Boxes,
     Building2,
-    FileBarChart,
     Camera,
+    FileBarChart,
     LayoutDashboard,
     Megaphone,
     PlugZap,
@@ -14,6 +14,7 @@ import {
     Truck,
     Users,
     Wallet,
+    Warehouse,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -51,6 +52,7 @@ export const NAVIGATION: NavSection[] = [
             { label: 'Marketplace', href: '/marketplace', icon: Store, permission: 'marketplace.kpi_strip.view' },
             { label: 'Operations', href: '/operations', icon: Truck, permission: 'operations.kpi_strip.view' },
             { label: 'Catalog', href: '/catalog', icon: Boxes, permission: 'catalog.kpi_strip.view' },
+            { label: 'Inventory', href: '/inventory', icon: Warehouse, permission: 'catalog.stock.view' },
         ],
     },
     {

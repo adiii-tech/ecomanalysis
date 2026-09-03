@@ -12,8 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * Where a tenant's alerts and digests are delivered. Secrets are encrypted at
  * rest; a channel with nothing configured is treated as unconfigured rather
  * than as a silent failure.
- */
-/**
+ *
  * @property int $id
  * @property int $tenant_id
  * @property array $email_recipients

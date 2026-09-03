@@ -7,7 +7,7 @@ import { Link, router, usePage } from "@inertiajs/react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import * as React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { Bell, Bookmark, Boxes, CalendarDays, Camera, Check, ChevronDown, ChevronLeft, Command, FileBarChart, LayoutDashboard, Loader2, LogOut, Megaphone, Moon, PanelLeftClose, PanelLeftOpen, PlugZap, RefreshCw, Settings, Share2, Sparkles, Store, Sun, Trash2, Truck, User, Users, Wallet } from "lucide-react";
+import { Bell, Bookmark, Boxes, CalendarDays, Camera, Check, ChevronDown, ChevronLeft, Command, FileBarChart, LayoutDashboard, Loader2, LogOut, Megaphone, Moon, PanelLeftClose, PanelLeftOpen, PlugZap, RefreshCw, Settings, Share2, Sparkles, Store, Sun, Trash2, Truck, User, Users, Wallet, Warehouse } from "lucide-react";
 import { toast } from "sonner";
 import * as SeparatorPrimitive from "@radix-ui/react-separator";
 import { Command as Command$1 } from "cmdk";
@@ -83,6 +83,12 @@ var NAVIGATION = [
 				href: "/catalog",
 				icon: Boxes,
 				permission: "catalog.kpi_strip.view"
+			},
+			{
+				label: "Inventory",
+				href: "/inventory",
+				icon: Warehouse,
+				permission: "catalog.stock.view"
 			}
 		]
 	},
@@ -1121,28 +1127,27 @@ function AppLayout({ title, description, actions, showFilters = true, surface, f
 								/* @__PURE__ */ jsx(UserMenu, {})
 							]
 						})]
-					}), showFilters && /* @__PURE__ */ jsxs("div", {
+					}), (showFilters || actions) && /* @__PURE__ */ jsxs("div", {
 						className: "flex flex-wrap items-center gap-2 border-t border-border/70 px-4 py-2 sm:px-6",
-						children: [
+						children: [showFilters && /* @__PURE__ */ jsxs(Fragment, { children: [
 							/* @__PURE__ */ jsx(DateRangePicker, {}),
 							/* @__PURE__ */ jsx(ChannelFilter, {}),
 							/* @__PURE__ */ jsx(SavedViews, { surface: surface ?? surfaceFromUrl(currentUrl) }),
-							filterExtras,
-							/* @__PURE__ */ jsxs("div", {
-								className: "ml-auto flex items-center gap-1.5",
-								children: [actions, /* @__PURE__ */ jsxs(Button, {
-									variant: "outline",
-									size: "sm",
-									className: "hidden gap-1.5 text-xs text-muted-foreground sm:inline-flex",
-									onClick: () => document.dispatchEvent(new KeyboardEvent("keydown", {
-										key: "k",
-										metaKey: true,
-										bubbles: true
-									})),
-									children: [/* @__PURE__ */ jsx(Command, { className: "size-3" }), "K"]
-								})]
-							})
-						]
+							filterExtras
+						] }), /* @__PURE__ */ jsxs("div", {
+							className: "ml-auto flex items-center gap-1.5",
+							children: [actions, /* @__PURE__ */ jsxs(Button, {
+								variant: "outline",
+								size: "sm",
+								className: "hidden gap-1.5 text-xs text-muted-foreground sm:inline-flex",
+								onClick: () => document.dispatchEvent(new KeyboardEvent("keydown", {
+									key: "k",
+									metaKey: true,
+									bubbles: true
+								})),
+								children: [/* @__PURE__ */ jsx(Command, { className: "size-3" }), "K"]
+							})]
+						})]
 					})]
 				}),
 				/* @__PURE__ */ jsx("main", {

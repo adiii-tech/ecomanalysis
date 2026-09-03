@@ -1,6 +1,6 @@
 import { t as cn } from "./utils-BVTyW6jK.js";
 import { r as Button } from "./input-C0zE_xzz.js";
-import { t as AppLayout } from "./app-layout-Drf1OqZl.js";
+import { t as AppLayout } from "./app-layout-DdOsQy6Y.js";
 import { t as EmptyState } from "./empty-state-DjIQjBC7.js";
 import { c as formatDateTime, f as formatNumber, i as formatCompactCurrency, o as formatCurrency, p as formatPercent, t as Card } from "./card-DJDNvUnK.js";
 import { t as Badge } from "./badge-CFyLZ3R-.js";

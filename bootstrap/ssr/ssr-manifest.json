@@ -7,7 +7,7 @@
     "/build/assets/caveat-note-Dr_rbZyQ.js"
   ],
   "resources/js/components/app/channel-filter.tsx": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/components/app/chart-card.tsx": [
     "/build/assets/chart-card-CZPTjzl-.js"
@@ -16,13 +16,13 @@
     "/build/assets/chart-card-CZPTjzl-.js"
   ],
   "resources/js/components/app/command-palette.tsx": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/components/app/data-table.tsx": [
     "/build/assets/data-table-CQdRzZJF.js"
   ],
   "resources/js/components/app/date-range-picker.tsx": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/components/app/delta-chip.tsx": [
     "/build/assets/delta-chip-CWzaPomV.js"
@@ -40,7 +40,7 @@
     "/build/assets/kpi-card-CF3GcgfJ.js"
   ],
   "resources/js/components/app/orders-drilldown.tsx": [
-    "/build/assets/show-ChuOMWPc.js"
+    "/build/assets/show-CXkeZY5D.js"
   ],
   "resources/js/components/app/permission-guard.tsx": [
     "/build/assets/permission-guard-B2YFsnLX.js"
@@ -49,13 +49,13 @@
     "/build/assets/returns-basis-toggle-Hux1TInn.js"
   ],
   "resources/js/components/app/saved-views.tsx": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/components/app/stat-strip.tsx": [
     "/build/assets/stat-strip-Bf4c-qAu.js"
   ],
   "resources/js/components/app/sync-indicator.tsx": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/components/app/verdict-note.tsx": [
     "/build/assets/chart-card-CZPTjzl-.js"
@@ -67,10 +67,10 @@
     "/build/assets/waterfall-chart-CcaRf_l7.js"
   ],
   "resources/js/components/dashboard/health-flags.tsx": [
-    "/build/assets/dashboard-BuAOXnoa.js"
+    "/build/assets/dashboard-rceh-54a.js"
   ],
   "resources/js/components/dashboard/sales-journey.tsx": [
-    "/build/assets/dashboard-BuAOXnoa.js"
+    "/build/assets/dashboard-rceh-54a.js"
   ],
   "resources/js/components/dashboard/sales-summary-table.tsx": [
     "/build/assets/sales-summary-table-CJxS4gRN.js"
@@ -94,13 +94,13 @@
     "/build/assets/input-C0zE_xzz.js"
   ],
   "resources/js/components/ui/popover.tsx": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/components/ui/select.tsx": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/components/ui/separator.tsx": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/components/ui/sheet.tsx": [
     "/build/assets/sheet-BNOmNaqW.js"
@@ -118,7 +118,7 @@
     "/build/assets/chart-card-CZPTjzl-.js"
   ],
   "resources/js/hooks/use-appearance.ts": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/hooks/use-export.ts": [
     "/build/assets/chart-card-CZPTjzl-.js"
@@ -133,7 +133,7 @@
     "/build/assets/use-widget-CMYArvtl.js"
   ],
   "resources/js/layouts/app-layout.tsx": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/layouts/auth-layout.tsx": [
     "/build/assets/auth-layout-DuLD23aV.js"
@@ -145,22 +145,22 @@
     "/build/assets/card-DJDNvUnK.js"
   ],
   "resources/js/lib/navigation.ts": [
-    "/build/assets/app-layout-Drf1OqZl.js"
+    "/build/assets/app-layout-DdOsQy6Y.js"
   ],
   "resources/js/lib/utils.ts": [
     "/build/assets/utils-BVTyW6jK.js"
   ],
   "resources/js/pages/admin/users.tsx": [
-    "/build/assets/users-42fA1qpS.js"
+    "/build/assets/users-HlOIqbkf.js"
   ],
   "resources/js/pages/ai/index.tsx": [
-    "/build/assets/ai-DC5VZrP6.js"
+    "/build/assets/ai-WPzLeNPF.js"
   ],
   "resources/js/pages/ai/shared.tsx": [
     "/build/assets/shared-DHnEKQMw.js"
   ],
   "resources/js/pages/alerts/index.tsx": [
-    "/build/assets/alerts-ty-D71eX.js"
+    "/build/assets/alerts-BPNfzH93.js"
   ],
   "resources/js/pages/auth/accept-invite.tsx": [
     "/build/assets/accept-invite-BBt3reCC.js"
@@ -181,52 +181,61 @@
     "/build/assets/reset-password-M6vLN0PU.js"
   ],
   "resources/js/pages/catalog/index.tsx": [
-    "/build/assets/catalog-B1pFs9RB.js"
+    "/build/assets/catalog-Dy6QcHAZ.js"
   ],
   "resources/js/pages/connectors/index.tsx": [
-    "/build/assets/connectors-2YCqwZSE.js"
+    "/build/assets/connectors-DSlLxRFQ.js"
   ],
   "resources/js/pages/customers/explorer.tsx": [
-    "/build/assets/explorer-CRsVKBZA.js"
+    "/build/assets/explorer-BN4BNDj1.js"
   ],
   "resources/js/pages/customers/index.tsx": [
-    "/build/assets/customers-AVlokR1e.js"
+    "/build/assets/customers-BB338zfn.js"
   ],
   "resources/js/pages/customers/show.tsx": [
-    "/build/assets/show-NUEyE1KQ.js"
+    "/build/assets/show-C2NcIzYU.js"
   ],
   "resources/js/pages/dashboard/index.tsx": [
-    "/build/assets/dashboard-BuAOXnoa.js"
+    "/build/assets/dashboard-rceh-54a.js"
   ],
   "resources/js/pages/finance/index.tsx": [
-    "/build/assets/finance-BA4MJS5s.js"
+    "/build/assets/finance-CGnePD6b.js"
   ],
   "resources/js/pages/instagram/index.tsx": [
-    "/build/assets/instagram-Chhi1bSi.js"
+    "/build/assets/instagram-rCdbjWkw.js"
+  ],
+  "resources/js/pages/inventory/counts.tsx": [
+    "/build/assets/counts-Cd_2OZtr.js"
+  ],
+  "resources/js/pages/inventory/index.tsx": [
+    "/build/assets/inventory-BTyM5FET.js"
+  ],
+  "resources/js/pages/inventory/purchasing.tsx": [
+    "/build/assets/purchasing-B0jyEIHO.js"
   ],
   "resources/js/pages/marketing/index.tsx": [
-    "/build/assets/marketing-BTLoGH-g.js"
+    "/build/assets/marketing-Cla1FNrn.js"
   ],
   "resources/js/pages/marketplace/index.tsx": [
-    "/build/assets/marketplace-CqXHiDBH.js"
+    "/build/assets/marketplace-BbgQFIhV.js"
   ],
   "resources/js/pages/onboarding/index.tsx": [
-    "/build/assets/onboarding-CzWE374p.js"
+    "/build/assets/onboarding-BjQfcD46.js"
   ],
   "resources/js/pages/operations/index.tsx": [
-    "/build/assets/operations-B3_kOQVv.js"
+    "/build/assets/operations-CiRtLCWH.js"
   ],
   "resources/js/pages/reports/index.tsx": [
-    "/build/assets/reports-jh4n1ic9.js"
+    "/build/assets/reports-PuXVxDEU.js"
   ],
   "resources/js/pages/reports/shared.tsx": [
     "/build/assets/shared-Bd9nwEXI.js"
   ],
   "resources/js/pages/reports/show.tsx": [
-    "/build/assets/show-ChuOMWPc.js"
+    "/build/assets/show-CXkeZY5D.js"
   ],
   "resources/js/pages/settings/profile.tsx": [
-    "/build/assets/profile-B97WfPF4.js"
+    "/build/assets/profile-CckmLDul.js"
   ],
   "resources/js/ssr.tsx": []
 }

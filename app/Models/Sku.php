@@ -33,6 +33,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_combo
  * @property array $combo_children
  * @property bool $is_active
+ * @property ?int $reorder_point
+ * @property ?int $safety_stock
+ * @property ?int $reorder_quantity
+ * @property ?int $lead_time_days
+ * @property ?int $supplier_id
+ * @property bool $tracks_inventory
  * @property ?CarbonImmutable $created_at
  * @property ?CarbonImmutable $updated_at
  */
@@ -42,12 +48,31 @@ class Sku extends Model
 
     protected $guarded = [];
 
+    /**
+     * Mirrors the column defaults. `create()` returns only the attributes it
+     * inserted, so without these a brand-new SKU would look untracked and
+     * refuse its own opening stock.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_active' => true,
+        'is_combo' => false,
+        'tracks_inventory' => true,
+        'mrp' => 0,
+        'selling_price' => 0,
+        'cost_price' => 0,
+        'weight_grams' => 0,
+        'gst_rate' => 0,
+    ];
+
     /** @return array<string, string> */
     protected function casts(): array
     {
         return [
             'is_combo' => 'boolean',
             'is_active' => 'boolean',
+            'tracks_inventory' => 'boolean',
             'combo_children' => 'array',
             'gst_rate' => 'float',
         ];

@@ -1,5 +1,5 @@
 import { t as cn } from "./utils-BVTyW6jK.js";
-import { t as AppLayout } from "./app-layout-Drf1OqZl.js";
+import { t as AppLayout } from "./app-layout-DdOsQy6Y.js";
 import { c as formatDateTime, f as formatNumber, i as formatCompactCurrency, o as formatCurrency, p as formatPercent } from "./card-DJDNvUnK.js";
 import { t as Badge } from "./badge-CFyLZ3R-.js";
 import { t as ChartCard } from "./chart-card-CZPTjzl-.js";
