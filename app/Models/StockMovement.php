@@ -33,6 +33,25 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property ?CarbonImmutable $created_at
  * @property ?CarbonImmutable $updated_at
  */
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $sku_id
+ * @property ?int $location_id
+ * @property ?int $stock_batch_id
+ * @property StockMovementType $type
+ * @property int $quantity
+ * @property int $balance_after
+ * @property int $unit_cost
+ * @property ?string $reason
+ * @property ?string $note
+ * @property ?string $reference_type
+ * @property ?int $reference_id
+ * @property ?int $user_id
+ * @property CarbonImmutable $happened_at
+ * @property ?CarbonImmutable $created_at
+ * @property ?CarbonImmutable $updated_at
+ */
 class StockMovement extends Model
 {
     use BelongsToTenant;

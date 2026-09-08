@@ -18,6 +18,7 @@ use App\Domain\Sales\Queries\GeoQuery;
 use App\Domain\Sales\Queries\OrderQuery;
 use App\Domain\Sales\Queries\ProductQuery;
 use App\Domain\Sales\Queries\SalesSummaryQuery;
+use App\Enums\StockMovementType;
 use App\Support\Facades\Tenant;
 use App\Support\Money;
 use App\Support\Num;
@@ -67,6 +68,8 @@ class DatasetRegistry
         'ndr_queue' => ['label' => 'NDR Queue', 'permission' => 'operations.ndr_queue.export'],
         'cod_cash_flow' => ['label' => 'COD Cash Flow', 'permission' => 'reports.cod_cash_flow.export'],
         'zero_order_skus' => ['label' => 'Products with Zero Orders', 'permission' => 'marketplace.zero_order_skus.export'],
+        'stock_ledger' => ['label' => 'Stock Ledger', 'permission' => 'catalog.movements.export'],
+        'inventory_valuation' => ['label' => 'Inventory Valuation', 'permission' => 'catalog.stock.export'],
     ];
 
     public function __construct(
@@ -859,6 +862,115 @@ class DatasetRegistry
             ],
             $context,
             'Remittance timing comes from the courier feed. Anything not yet scanned as collected shows as in transit.',
+        );
+    }
+
+    /** @param array<string, string> $context */
+    private function buildStockLedger(WidgetFilters $filters, array $context): Dataset
+    {
+        $rows = DB::table('stock_movements as m')
+            ->join('skus as s', 's.id', '=', 'm.sku_id')
+            ->leftJoin('locations as l', 'l.id', '=', 'm.location_id')
+            ->leftJoin('users as u', 'u.id', '=', 'm.user_id')
+            ->leftJoin('stock_batches as b', 'b.id', '=', 'm.stock_batch_id')
+            ->where('m.tenant_id', Tenant::id())
+            ->whereBetween('m.happened_at', [$filters->period->from->setTimezone('UTC'), $filters->period->to->setTimezone('UTC')])
+            ->selectRaw('m.happened_at, s.sku_code, s.name, m.type, m.quantity, m.balance_after')
+            ->selectRaw('m.unit_cost, m.reason, m.note, l.name AS location, b.batch_code, u.name AS actioned_by')
+            ->orderByDesc('m.happened_at')
+            ->orderByDesc('m.id')
+            ->limit(20000)
+            ->get()
+            ->map(static fn (object $row): object => (object) [
+                ...(array) $row,
+                'type' => StockMovementType::tryFrom((string) $row->type)?->label() ?? $row->type,
+                'value' => (int) $row->quantity * (int) $row->unit_cost,
+            ]);
+
+        return new Dataset(
+            'Stock Ledger',
+            $rows,
+            [
+                Column::datetime('happened_at', 'When'),
+                Column::text('sku_code', 'SKU'),
+                Column::text('name', 'Product'),
+                Column::text('type', 'Movement'),
+                Column::text('location', 'Location'),
+                Column::text('batch_code', 'Batch'),
+                Column::number('quantity', 'Change'),
+                Column::number('balance_after', 'Balance after'),
+                Column::money('unit_cost', 'Unit cost'),
+                Column::money('value', 'Value moved'),
+                Column::text('reason', 'Reason'),
+                Column::text('note', 'Note'),
+                Column::text('actioned_by', 'By'),
+            ],
+            $context,
+            'Every movement in the window, newest first. Balances are as at each movement, so the file replays exactly how stock got where it is.',
+        );
+    }
+
+    /** @param array<string, string> $context */
+    private function buildInventoryValuation(WidgetFilters $filters, array $context): Dataset
+    {
+        // Batch value is what those specific units cost; the average is what a
+        // SKU costs today. Showing both is the honest way to present it.
+        $rows = DB::table('skus as s')
+            ->leftJoin('inventory as i', function ($join): void {
+                $join->on('i.sku_id', '=', 's.id')->where('i.source', 'manual');
+            })
+            ->leftJoin('stock_batches as b', function ($join): void {
+                $join->on('b.sku_id', '=', 's.id')->where('b.quantity', '>', 0);
+            })
+            ->where('s.tenant_id', Tenant::id())
+            ->where('s.is_active', true)
+            ->where('s.tracks_inventory', true)
+            ->selectRaw('s.sku_code, s.name, s.category, s.cost_price, s.selling_price')
+            ->selectRaw('COALESCE(MAX(i.on_hand), 0) AS on_hand, COALESCE(MAX(i.reserved), 0) AS reserved')
+            ->selectRaw('COALESCE(SUM(b.quantity), 0) AS batched_units')
+            ->selectRaw('COALESCE(SUM(b.quantity * b.unit_cost), 0) AS batch_value')
+            ->groupBy('s.id', 's.sku_code', 's.name', 's.category', 's.cost_price', 's.selling_price')
+            ->havingRaw('MAX(i.on_hand) > 0')
+            ->orderByDesc('on_hand')
+            ->limit(5000)
+            ->get()
+            ->map(static function (object $row): object {
+                $onHand = (int) $row->on_hand;
+                $average = $onHand * (int) $row->cost_price;
+
+                return (object) [
+                    'sku_code' => $row->sku_code,
+                    'name' => $row->name,
+                    'category' => $row->category,
+                    'on_hand' => $onHand,
+                    'reserved' => (int) $row->reserved,
+                    'cost_price' => (int) $row->cost_price,
+                    'value_at_average' => $average,
+                    'batched_units' => (int) $row->batched_units,
+                    'value_at_batch_cost' => (int) $row->batch_value,
+                    'retail_value' => $onHand * (int) $row->selling_price,
+                    'difference' => (int) $row->batch_value === 0 ? 0 : (int) $row->batch_value - $average,
+                ];
+            });
+
+        return new Dataset(
+            'Inventory Valuation',
+            $rows,
+            [
+                Column::text('sku_code', 'SKU'),
+                Column::text('name', 'Product'),
+                Column::text('category', 'Category'),
+                Column::number('on_hand', 'On hand'),
+                Column::number('reserved', 'Reserved'),
+                Column::money('cost_price', 'Current cost'),
+                Column::money('value_at_average', 'Value at average cost'),
+                Column::number('batched_units', 'Units in batches'),
+                Column::money('value_at_batch_cost', 'Value at batch cost (FIFO)'),
+                Column::money('difference', 'FIFO vs average'),
+                Column::money('retail_value', 'Value at selling price'),
+            ],
+            $context,
+            'Batch cost is what those exact units were bought for; average cost is what the SKU costs today. A SKU with no batches shows zero FIFO value, not a wrong one.',
         );
     }
 

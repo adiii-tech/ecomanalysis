@@ -39,6 +39,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property ?int $lead_time_days
  * @property ?int $supplier_id
  * @property bool $tracks_inventory
+ * @property ?int $shelf_life_days
+ * @property bool $tracks_batches
  * @property ?CarbonImmutable $created_at
  * @property ?CarbonImmutable $updated_at
  */
@@ -59,6 +61,7 @@ class Sku extends Model
         'is_active' => true,
         'is_combo' => false,
         'tracks_inventory' => true,
+        'tracks_batches' => false,
         'mrp' => 0,
         'selling_price' => 0,
         'cost_price' => 0,
@@ -73,6 +76,7 @@ class Sku extends Model
             'is_combo' => 'boolean',
             'is_active' => 'boolean',
             'tracks_inventory' => 'boolean',
+            'tracks_batches' => 'boolean',
             'combo_children' => 'array',
             'gst_rate' => 'float',
         ];
@@ -112,5 +116,27 @@ class Sku extends Model
     public function availableStock(): int
     {
         return (int) $this->inventory()->sum('available');
+    }
+
+    /**
+     * The components this SKU is made of. A bundle holds no stock of its own —
+     * its availability is whatever its scarcest component allows.
+     *
+     * @return HasMany<SkuComponent, $this>
+     */
+    public function components(): HasMany
+    {
+        return $this->hasMany(SkuComponent::class, 'parent_sku_id');
+    }
+
+    /** @return HasMany<StockBatch, $this> */
+    public function batches(): HasMany
+    {
+        return $this->hasMany(StockBatch::class);
+    }
+
+    public function isBundle(): bool
+    {
+        return $this->is_combo || $this->components()->exists();
     }
 }

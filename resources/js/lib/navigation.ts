@@ -106,6 +106,8 @@ export const REPORT_LINKS: ReportLink[] = [
     { key: 'sku_margin_waterfall', slug: 'sku-margin-waterfall', label: 'SKU Margin Waterfall', category: 'Profit & Margin', description: 'MRP to margin, step by step, per SKU.' },
     { key: 'contribution_by_cohort', slug: 'contribution-by-cohort', label: 'Contribution by Cohort', category: 'Marketing & Customers', description: 'Profit per acquisition cohort over time.' },
     { key: 'forecast', slug: 'forecast', label: 'Forecast', category: 'Executive', description: '30/60/90-day sales and inventory projection.' },
+    { key: 'stock_ledger', slug: 'stock-ledger', label: 'Stock Ledger', category: 'Operations & Inventory', description: 'Every stock movement, with the shrinkage it adds up to.' },
+    { key: 'inventory_valuation', slug: 'inventory-valuation', label: 'Inventory Valuation', category: 'Finance', description: 'Stock value at cost, at retail, and what is aging out.' },
 ];
 
 export const REPORT_CATEGORIES = [...new Set(REPORT_LINKS.map((report) => report.category))];

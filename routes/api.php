@@ -251,6 +251,15 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
         Route::delete('locations/{location}', [InventoryController::class, 'deleteLocation'])->whereNumber('location')->middleware('permission.widget:catalog.locations.manage')->name('locations.destroy');
 
         Route::post('transfer', [InventoryController::class, 'transfer'])->middleware('permission.widget:catalog.transfers.manage')->name('transfer');
+        Route::post('reservations/recalculate', [InventoryController::class, 'recalculateReservations'])->middleware('permission.widget:catalog.stock.manage')->name('reservations');
+
+        Route::get('batches/expiring', [InventoryController::class, 'expiring'])->middleware('permission.widget:catalog.batches.view')->name('batches.expiring');
+        Route::get('batches/{sku}', [InventoryController::class, 'batches'])->whereNumber('sku')->middleware('permission.widget:catalog.batches.view')->name('batches');
+        Route::post('batches', [InventoryController::class, 'receiveBatch'])->middleware('permission.widget:catalog.batches.manage')->name('batches.receive');
+        Route::post('batches/{batch}/write-off', [InventoryController::class, 'writeOffBatch'])->whereNumber('batch')->middleware('permission.widget:catalog.batches.manage')->name('batches.write-off');
+
+        Route::get('bundles/{sku}', [InventoryController::class, 'bundle'])->whereNumber('sku')->middleware('permission.widget:catalog.bundles.view')->name('bundles');
+        Route::put('bundles/{sku}', [InventoryController::class, 'saveBundle'])->whereNumber('sku')->middleware('permission.widget:catalog.bundles.manage')->name('bundles.save');
 
         Route::get('counts', [InventoryController::class, 'counts'])->middleware('permission.widget:catalog.stock_counts.view')->name('counts');
         Route::post('counts', [InventoryController::class, 'createCount'])->middleware('permission.widget:catalog.stock_counts.manage')->name('counts.store');

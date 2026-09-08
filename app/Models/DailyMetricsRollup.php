@@ -54,6 +54,47 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property ?CarbonImmutable $created_at
  * @property ?CarbonImmutable $updated_at
  */
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property CarbonImmutable $date
+ * @property ?int $channel_id
+ * @property PaymentMode $payment_mode
+ * @property int $orders_count
+ * @property int $units_count
+ * @property int $items_count
+ * @property int $customers_count
+ * @property int $new_customers
+ * @property int $repeat_customers
+ * @property int $gross_sales
+ * @property int $discounts
+ * @property int $cancelled_amount
+ * @property int $cancelled_orders
+ * @property int $invoiced_sales
+ * @property int $invoiced_orders
+ * @property int $returned_amount
+ * @property int $returned_orders
+ * @property int $rto_amount
+ * @property int $rto_orders
+ * @property int $net_sales
+ * @property int $tax_amount
+ * @property int $shipping_collected
+ * @property int $cogs
+ * @property int $marketplace_fees
+ * @property int $logistics_cost
+ * @property int $packaging_cost
+ * @property int $gateway_fees
+ * @property int $return_cost
+ * @property int $contribution_margin
+ * @property int $shipments_count
+ * @property int $delivered_count
+ * @property int $in_transit_count
+ * @property int $loss_orders
+ * @property int $loss_amount
+ * @property ?CarbonImmutable $computed_at
+ * @property ?CarbonImmutable $created_at
+ * @property ?CarbonImmutable $updated_at
+ */
 class DailyMetricsRollup extends Model
 {
     use BelongsToTenant;

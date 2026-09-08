@@ -32,6 +32,26 @@ use Illuminate\Database\Eloquent\Model;
  * @property ?CarbonImmutable $created_at
  * @property ?CarbonImmutable $updated_at
  */
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property array $email_recipients
+ * @property ?string $slack_webhook_url
+ * @property ?string $whatsapp_phone_number_id
+ * @property ?string $whatsapp_token
+ * @property ?string $whatsapp_template
+ * @property array $whatsapp_recipients
+ * @property array $daily_brief_recipients
+ * @property int $daily_brief_hour
+ * @property array $weekly_review_recipients
+ * @property int $weekly_review_day
+ * @property array $monthly_pnl_recipients
+ * @property ?CarbonImmutable $daily_brief_sent_at
+ * @property ?CarbonImmutable $weekly_review_sent_at
+ * @property ?CarbonImmutable $monthly_pnl_sent_at
+ * @property ?CarbonImmutable $created_at
+ * @property ?CarbonImmutable $updated_at
+ */
 class NotificationSetting extends Model
 {
     use BelongsToTenant;

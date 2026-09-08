@@ -1,5 +1,5 @@
 import { t as cn } from "./utils-BVTyW6jK.js";
-import { t as AppLayout } from "./app-layout-DdOsQy6Y.js";
+import { t as AppLayout } from "./app-layout-DhPbmqLN.js";
 import { a as formatCompactNumber, f as formatNumber, p as formatPercent, s as formatDate, t as Card } from "./card-DJDNvUnK.js";
 import { t as Badge } from "./badge-CFyLZ3R-.js";
 import { t as ChartCard } from "./chart-card-CZPTjzl-.js";

@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Domain\Inventory\Actions\ApplyStockCount;
+use App\Domain\Inventory\Actions\RecalculateReservations;
 use App\Domain\Inventory\Actions\TransferStock;
 use App\Domain\Inventory\Queries\StockQuery;
+use App\Domain\Inventory\Services\BatchLedger;
+use App\Domain\Inventory\Services\BundleAvailability;
 use App\Domain\Inventory\Services\StockLedger;
 use App\Enums\AdjustmentReason;
 use App\Enums\StockMovementType;
@@ -15,10 +18,13 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\Sku;
+use App\Models\StockBatch;
 use App\Models\StockCount;
 use App\Models\StockCountItem;
 use App\Models\StockMovement;
 use App\Support\Facades\Tenant;
+use App\Support\Money;
+use App\Support\Verdict;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -484,6 +490,244 @@ class InventoryController extends Controller
             '%d SKUs corrected (+%d / -%d units). %d were never counted and left alone.',
             $result['corrected'], $result['units_up'], $result['units_down'], $result['uncounted'],
         ));
+    }
+
+    /** Batches for one SKU, oldest-expiring first — the order they will leave in. */
+    public function batches(Request $request, int $sku): JsonResponse
+    {
+        $model = Sku::query()->find($sku);
+
+        if ($model === null) {
+            return ApiResponse::error('SKU not found.', 404);
+        }
+
+        $rows = StockBatch::query()
+            ->with('location:id,name')
+            ->where('sku_id', $sku)
+            ->orderByRaw('expires_on IS NULL, expires_on ASC, id ASC')
+            ->get()
+            ->map(static fn (StockBatch $batch): array => [
+                'id' => $batch->id,
+                'batch_code' => $batch->batch_code,
+                'location' => $batch->location?->name,
+                'quantity' => $batch->quantity,
+                'quantity_received' => $batch->quantity_received,
+                'unit_cost' => $batch->unit_cost,
+                'value' => $batch->quantity * $batch->unit_cost,
+                'expires_on' => $batch->expires_on?->toDateString(),
+                'days_to_expiry' => $batch->daysToExpiry(),
+                'is_expired' => $batch->isExpired(),
+            ]);
+
+        return ApiResponse::ok([
+            'sku' => ['id' => $model->id, 'sku_code' => $model->sku_code, 'name' => $model->name],
+            'tracks_batches' => (bool) $model->tracks_batches,
+            'rows' => $rows->all(),
+            'total_units' => (int) $rows->sum('quantity'),
+            'total_value' => (int) $rows->sum('value'),
+        ]);
+    }
+
+    /** Books a batch in by hand, for stock that did not arrive on a PO. */
+    public function receiveBatch(Request $request, BatchLedger $batches): JsonResponse
+    {
+        $validated = $request->validate([
+            'sku_id' => ['required', 'integer'],
+            'batch_code' => ['required', 'string', 'max:64'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'expires_on' => ['nullable', 'date'],
+            'location_id' => ['nullable', 'integer'],
+        ]);
+
+        $sku = Sku::query()->find($validated['sku_id']);
+
+        if ($sku === null) {
+            return ApiResponse::error('SKU not found.', 404);
+        }
+
+        $location = $this->resolveLocation($validated['location_id'] ?? null);
+
+        try {
+            $batch = $batches->receive(
+                $sku,
+                $validated['batch_code'],
+                $validated['quantity'],
+                Money::fromRupees((float) ($validated['unit_cost'] ?? 0)),
+                $location,
+                $validated['expires_on'] ?? null,
+            );
+
+            // The batch and the overall balance move together, so the ledger
+            // still explains the on-hand figure.
+            $movement = $this->ledger->record($sku, StockMovementType::PurchaseReceipt, $validated['quantity'], $location, [
+                'unit_cost' => $batch->unit_cost,
+                'note' => sprintf('Batch %s', $batch->batch_code),
+                'reference' => $batch,
+            ]);
+        } catch (Throwable $exception) {
+            return ApiResponse::error($exception->getMessage(), 422);
+        }
+
+        $movement->forceFill(['stock_batch_id' => $batch->id])->save();
+
+        activity('inventory')->performedOn($sku)
+            ->withProperties(['batch' => $batch->batch_code, 'quantity' => $validated['quantity']])
+            ->log('stock.batch_received');
+
+        return ApiResponse::ok([
+            'batch_id' => $batch->id,
+            'balance_after' => $movement->balance_after,
+        ], message: sprintf('Batch %s booked in. %s now at %d.', $batch->batch_code, $sku->sku_code, $movement->balance_after));
+    }
+
+    /** Batches at or near expiry — the stock you can still do something about. */
+    public function expiring(Request $request, BatchLedger $batches): JsonResponse
+    {
+        $days = (int) $request->integer('within_days', 90);
+        $rows = $batches->expiring($days);
+
+        $atRisk = (int) $rows->sum(fn (StockBatch $batch): int => $batch->quantity * $batch->unit_cost);
+        $expired = $rows->filter(fn (StockBatch $batch): bool => $batch->isExpired());
+
+        return ApiResponse::ok([
+            'rows' => $rows->map(static fn (StockBatch $batch): array => [
+                'id' => $batch->id,
+                'sku_code' => $batch->sku?->sku_code,
+                'name' => $batch->sku?->name,
+                'batch_code' => $batch->batch_code,
+                'location' => $batch->location?->name,
+                'quantity' => $batch->quantity,
+                'expires_on' => $batch->expires_on?->toDateString(),
+                'days_to_expiry' => $batch->daysToExpiry(),
+                'is_expired' => $batch->isExpired(),
+                'value_at_cost' => $batch->quantity * $batch->unit_cost,
+            ])->values()->all(),
+            'within_days' => $days,
+            'value_at_risk' => $atRisk,
+            'expired_units' => (int) $expired->sum('quantity'),
+        ], verdict: $this->expiryVerdict($rows->all(), $atRisk));
+    }
+
+    /** Writes off a batch that has expired, with the loss recorded honestly. */
+    public function writeOffBatch(Request $request, int $batch): JsonResponse
+    {
+        $model = StockBatch::query()->with('sku')->find($batch);
+
+        if ($model === null) {
+            return ApiResponse::error('Batch not found.', 404);
+        }
+
+        if ($model->quantity <= 0) {
+            return ApiResponse::error('That batch is already empty.', 422);
+        }
+
+        $quantity = $model->quantity;
+
+        try {
+            $movement = $this->ledger->record($model->sku, StockMovementType::WriteOff, -$quantity, $model->location, [
+                'reason' => 'expired',
+                'note' => sprintf('Batch %s written off', $model->batch_code),
+                'reference' => $model,
+            ]);
+        } catch (Throwable $exception) {
+            return ApiResponse::error($exception->getMessage(), 422);
+        }
+
+        $movement->forceFill(['stock_batch_id' => $model->id])->save();
+        $model->forceFill(['quantity' => 0])->save();
+
+        activity('inventory')->performedOn($model->sku)
+            ->withProperties(['batch' => $model->batch_code, 'units' => $quantity, 'cost' => $quantity * $model->unit_cost])
+            ->log('stock.batch_written_off');
+
+        return ApiResponse::ok(null, message: sprintf(
+            '%d units written off — %s of stock at cost.',
+            $quantity,
+            Money::format($quantity * $model->unit_cost),
+        ));
+    }
+
+    /** What a bundle can be built from, and what is limiting it. */
+    public function bundle(int $sku, BundleAvailability $bundles): JsonResponse
+    {
+        $model = Sku::query()->find($sku);
+
+        if ($model === null) {
+            return ApiResponse::error('SKU not found.', 404);
+        }
+
+        return ApiResponse::ok([
+            'sku' => ['id' => $model->id, 'sku_code' => $model->sku_code, 'name' => $model->name],
+            ...$bundles->forBundle($model),
+        ]);
+    }
+
+    public function saveBundle(Request $request, int $sku, BundleAvailability $bundles): JsonResponse
+    {
+        $model = Sku::query()->find($sku);
+
+        if ($model === null) {
+            return ApiResponse::error('SKU not found.', 404);
+        }
+
+        $validated = $request->validate([
+            'components' => ['present', 'array', 'max:50'],
+            'components.*.sku_id' => ['required', 'integer'],
+            'components.*.quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $bundles->setComponents($model, $validated['components']);
+
+        activity('inventory')->performedOn($model)
+            ->withProperties(['components' => count($validated['components'])])
+            ->log('bundle.saved');
+
+        return ApiResponse::ok(
+            $bundles->forBundle($model->fresh()),
+            message: $validated['components'] === []
+                ? 'Components cleared — this SKU holds its own stock again.'
+                : 'Bundle saved. Its availability now follows its components.',
+        );
+    }
+
+    /** Recomputes what open orders have spoken for. */
+    public function recalculateReservations(RecalculateReservations $action): JsonResponse
+    {
+        $result = $action->handle();
+
+        return ApiResponse::ok($result, message: sprintf(
+            '%d SKUs have %d units reserved against orders that have not shipped.',
+            $result['skus'],
+            $result['reserved_units'],
+        ));
+    }
+
+    /** @param list<StockBatch> $rows */
+    private function expiryVerdict(array $rows, int $atRisk): Verdict
+    {
+        if ($rows === []) {
+            return Verdict::good('Nothing is close to expiring', 'No batch has a date inside the window you asked about.');
+        }
+
+        $expired = array_values(array_filter($rows, static fn (StockBatch $batch): bool => $batch->isExpired()));
+
+        if ($expired !== []) {
+            $lost = array_sum(array_map(static fn (StockBatch $b): int => $b->quantity * $b->unit_cost, $expired));
+
+            return Verdict::bad(
+                sprintf('%d batches have already expired', count($expired)),
+                sprintf('%s of stock at cost cannot be sold.', Money::format($lost)),
+                'Write them off so your stock value stops counting goods you cannot ship.',
+                $lost,
+            );
+        }
+
+        return Verdict::watch(
+            sprintf('%d batches expire soon', count($rows)),
+            sprintf('%s of stock at cost is on a clock.', Money::format($atRisk)),
+            'Discount or bundle them now — a markdown beats a write-off.',
+        );
     }
 
     public function reconciliation(): JsonResponse

@@ -1,4 +1,4 @@
-import { t as AppLayout } from "./app-layout-DdOsQy6Y.js";
+import { t as AppLayout } from "./app-layout-DhPbmqLN.js";
 import { f as formatNumber, i as formatCompactCurrency, o as formatCurrency, p as formatPercent, t as Card } from "./card-DJDNvUnK.js";
 import { t as ChartCard } from "./chart-card-CZPTjzl-.js";
 import { t as PermissionGuard } from "./permission-guard-B2YFsnLX.js";

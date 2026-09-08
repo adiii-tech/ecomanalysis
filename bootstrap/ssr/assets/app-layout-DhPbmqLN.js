@@ -305,6 +305,20 @@ var REPORT_LINKS = [
 		label: "Forecast",
 		category: "Executive",
 		description: "30/60/90-day sales and inventory projection."
+	},
+	{
+		key: "stock_ledger",
+		slug: "stock-ledger",
+		label: "Stock Ledger",
+		category: "Operations & Inventory",
+		description: "Every stock movement, with the shrinkage it adds up to."
+	},
+	{
+		key: "inventory_valuation",
+		slug: "inventory-valuation",
+		label: "Inventory Valuation",
+		category: "Finance",
+		description: "Stock value at cost, at retail, and what is aging out."
 	}
 ];
 [...new Set(REPORT_LINKS.map((report) => report.category))];

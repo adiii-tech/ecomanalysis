@@ -15,6 +15,7 @@ use App\Domain\Reports\Reports\Definitions\ForecastReport;
 use App\Domain\Reports\Reports\Definitions\GeoCitiesReport;
 use App\Domain\Reports\Reports\Definitions\GstSummaryReport;
 use App\Domain\Reports\Reports\Definitions\InventoryHealthReport;
+use App\Domain\Reports\Reports\Definitions\InventoryValuationReport;
 use App\Domain\Reports\Reports\Definitions\LogisticsPerformanceReport;
 use App\Domain\Reports\Reports\Definitions\NetRealisationReport;
 use App\Domain\Reports\Reports\Definitions\NewVsRepeatReport;
@@ -26,6 +27,7 @@ use App\Domain\Reports\Reports\Definitions\ReorderReplenishmentReport;
 use App\Domain\Reports\Reports\Definitions\ReturnsRtoRegisterReport;
 use App\Domain\Reports\Reports\Definitions\SkuMarginWaterfallReport;
 use App\Domain\Reports\Reports\Definitions\StateRoiReport;
+use App\Domain\Reports\Reports\Definitions\StockLedgerReport;
 use App\Domain\Reports\Reports\Definitions\StockoutReport;
 use App\Domain\Reports\Reports\Definitions\TopCustomersReport;
 use App\Domain\Reports\Reports\Definitions\TransactionLedgerReport;
@@ -59,11 +61,13 @@ class ReportRegistry
         OrderAgingReport::class,
         ReorderReplenishmentReport::class,
         StockoutReport::class,
+        StockLedgerReport::class,
         CodCashFlowReport::class,
         ReturnsRtoRegisterReport::class,
         TransactionLedgerReport::class,
         PnlStatementReport::class,
         GstSummaryReport::class,
+        InventoryValuationReport::class,
     ];
 
     /** @var array<string, Report>|null */

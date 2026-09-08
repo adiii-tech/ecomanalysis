@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import {
-    ArrowRightLeft, ClipboardList, Loader2, Pencil, Plus,
+    ArrowRightLeft, Boxes, CalendarClock, ClipboardList, Layers, Loader2, Pencil, Plus, Trash2,
     ScrollText, Truck, Upload, Warehouse,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,7 +21,7 @@ import { WidgetError } from '@/components/app/empty-state';
 import { PermissionGuard } from '@/components/app/permission-guard';
 import { apiGet, apiSend } from '@/lib/api';
 import { usePermissions } from '@/hooks/use-permissions';
-import { formatCurrency, formatDateTime, formatNumber } from '@/lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Verdict } from '@/types';
 
@@ -110,6 +110,9 @@ export default function InventoryIndex() {
     const [importing, setImporting] = useState(false);
     const [transferring, setTransferring] = useState(false);
     const [locationsOpen, setLocationsOpen] = useState(false);
+    const [batchesFor, setBatchesFor] = useState<StockRow | null>(null);
+    const [bundleFor, setBundleFor] = useState<StockRow | null>(null);
+    const [expiryOpen, setExpiryOpen] = useState(false);
 
     const load = useCallback(() => {
         setLoading(true);
@@ -202,6 +205,12 @@ export default function InventoryIndex() {
                     <Button variant="ghost" size="icon" aria-label={`Ledger for ${row.sku_code}`} onClick={() => setLedgerFor(row)}>
                         <ScrollText className="size-3.5" />
                     </Button>
+                    <Button variant="ghost" size="icon" aria-label={`Batches for ${row.sku_code}`} onClick={() => setBatchesFor(row)}>
+                        <Layers className="size-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" aria-label={`Bundle for ${row.sku_code}`} onClick={() => setBundleFor(row)}>
+                        <Boxes className="size-3.5" />
+                    </Button>
                     {can('catalog.stock.manage') && (
                         <Button variant="ghost" size="icon" aria-label={`Adjust ${row.sku_code}`} onClick={() => setAdjusting(row)}>
                             <Pencil className="size-3.5" />
@@ -234,6 +243,11 @@ export default function InventoryIndex() {
                             <Link href="/inventory/counts">
                                 <ClipboardList className="size-3.5" /> Counts
                             </Link>
+                        </Button>
+                    </PermissionGuard>
+                    <PermissionGuard permission="catalog.batches.view">
+                        <Button variant="outline" size="sm" onClick={() => setExpiryOpen(true)}>
+                            <CalendarClock className="size-3.5" /> Expiry
                         </Button>
                     </PermissionGuard>
                     <PermissionGuard permission="catalog.transfers.manage">
@@ -322,6 +336,9 @@ export default function InventoryIndex() {
             <ImportSheet open={importing} locations={data?.locations ?? []} onOpenChange={setImporting} onSaved={load} />
             <TransferSheet open={transferring} rows={data?.rows ?? []} locations={data?.locations ?? []} onOpenChange={setTransferring} onSaved={load} />
             <LocationsSheet open={locationsOpen} locations={data?.locations ?? []} onOpenChange={setLocationsOpen} onSaved={load} />
+            <BatchesSheet row={batchesFor} locations={data?.locations ?? []} onClose={() => setBatchesFor(null)} onSaved={load} />
+            <BundleSheet row={bundleFor} rows={data?.rows ?? []} onClose={() => setBundleFor(null)} onSaved={load} />
+            <ExpirySheet open={expiryOpen} onOpenChange={setExpiryOpen} onSaved={load} />
         </AppLayout>
     );
 }
@@ -818,6 +835,390 @@ function LocationsSheet({
                             </Button>
                         </div>
                     )}
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+interface BatchRow {
+    id: number;
+    batch_code: string;
+    location: string | null;
+    quantity: number;
+    unit_cost: number;
+    value: number;
+    expires_on: string | null;
+    days_to_expiry: number | null;
+    is_expired: boolean;
+}
+
+function BatchesSheet({
+    row,
+    locations,
+    onClose,
+    onSaved,
+}: {
+    row: StockRow | null;
+    locations: LocationRow[];
+    onClose: () => void;
+    onSaved: () => void;
+}) {
+    const { can } = usePermissions();
+    const [data, setData] = useState<{ rows: BatchRow[]; total_units: number; total_value: number } | null>(null);
+    const [code, setCode] = useState('');
+    const [quantity, setQuantity] = useState('');
+    const [cost, setCost] = useState('');
+    const [expires, setExpires] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const load = useCallback(() => {
+        if (!row) return;
+        apiGet<{ rows: BatchRow[]; total_units: number; total_value: number }>(`/inventory/batches/${row.sku_id}`)
+            .then((response) => setData(response.data))
+            .catch(() => setData(null));
+    }, [row]);
+
+    useEffect(() => {
+        if (row) {
+            load();
+            setCode('');
+            setQuantity('');
+            setCost(String((row.cost_price / 100).toFixed(2)));
+            setExpires('');
+        } else {
+            setData(null);
+        }
+    }, [row, load]);
+
+    const save = async () => {
+        if (!row) return;
+        setSaving(true);
+        try {
+            const response = await apiSend<null>('POST', '/inventory/batches', {
+                sku_id: row.sku_id,
+                batch_code: code,
+                quantity: Number(quantity),
+                unit_cost: Number(cost || 0),
+                expires_on: expires || null,
+                location_id: locations.find((l) => l.is_default)?.id ?? null,
+            });
+            toast.success(response.message);
+            setCode('');
+            setQuantity('');
+            load();
+            onSaved();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Could not book the batch in.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Sheet open={row !== null} onOpenChange={(open) => !open && onClose()}>
+            <SheetContent className="w-full sm:max-w-xl">
+                <SheetHeader>
+                    <SheetTitle>{row?.sku_code} · batches</SheetTitle>
+                    <SheetDescription>
+                        Stock leaves closest-expiry-first. {formatNumber(data?.total_units ?? 0)} units in batches,
+                        worth {formatCurrency(data?.total_value ?? 0)} at what they actually cost.
+                    </SheetDescription>
+                </SheetHeader>
+
+                <div className="space-y-3 overflow-y-auto px-4">
+                    {data?.rows.length === 0 && <p className="text-sm text-muted-foreground">No batches yet.</p>}
+
+                    {data?.rows.map((batch) => (
+                        <Card key={batch.id} className="flex items-center justify-between gap-3 p-3">
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium">
+                                    {batch.batch_code}
+                                    {batch.is_expired && <Badge variant="bad" className="ml-1.5">expired</Badge>}
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                    {formatNumber(batch.quantity)} units · {formatCurrency(batch.unit_cost)}/unit
+                                    {batch.expires_on && ` · expires ${formatDate(batch.expires_on)}`}
+                                    {batch.days_to_expiry !== null && !batch.is_expired && ` (${batch.days_to_expiry}d)`}
+                                </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                                <span className="text-xs font-semibold tnum">{formatCurrency(batch.value)}</span>
+                                {can('catalog.batches.manage') && batch.quantity > 0 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label={`Write off ${batch.batch_code}`}
+                                        onClick={async () => {
+                                            try {
+                                                const response = await apiSend<null>('POST', `/inventory/batches/${batch.id}/write-off`);
+                                                toast.success(response.message);
+                                                load();
+                                                onSaved();
+                                            } catch (error) {
+                                                toast.error(error instanceof Error ? error.message : 'Could not write it off.');
+                                            }
+                                        }}
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                    </Button>
+                                )}
+                            </div>
+                        </Card>
+                    ))}
+
+                    {can('catalog.batches.manage') && (
+                        <div className="space-y-2 border-t border-border pt-3">
+                            <p className="text-xs font-medium">Book a batch in</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                    <Label htmlFor="batch-code">Batch code</Label>
+                                    <Input id="batch-code" value={code} onChange={(event) => setCode(event.target.value)} placeholder="B-2609" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="batch-qty">Quantity</Label>
+                                    <Input id="batch-qty" type="number" min={1} value={quantity} onChange={(event) => setQuantity(event.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="batch-cost">Unit cost (₹)</Label>
+                                    <Input id="batch-cost" type="number" value={cost} onChange={(event) => setCost(event.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="batch-expires">Expires on</Label>
+                                    <Input id="batch-expires" type="date" value={expires} onChange={(event) => setExpires(event.target.value)} />
+                                </div>
+                            </div>
+                            <Button size="sm" className="w-full" onClick={save} disabled={saving || !code || !quantity}>
+                                {saving && <Loader2 className="size-4 animate-spin" />} Book in
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+function BundleSheet({
+    row,
+    rows,
+    onClose,
+    onSaved,
+}: {
+    row: StockRow | null;
+    rows: StockRow[];
+    onClose: () => void;
+    onSaved: () => void;
+}) {
+    const { can } = usePermissions();
+    const [data, setData] = useState<{ buildable: number; limiting_sku: string | null; components: Record<string, unknown>[] } | null>(null);
+    const [lines, setLines] = useState<{ sku_id: string; quantity: string }[]>([]);
+    const [saving, setSaving] = useState(false);
+
+    const load = useCallback(() => {
+        if (!row) return;
+        apiGet<{ buildable: number; limiting_sku: string | null; components: Record<string, unknown>[] }>(`/inventory/bundles/${row.sku_id}`)
+            .then((response) => {
+                setData(response.data);
+                setLines(response.data.components.map((component) => ({
+                    sku_id: String(component.sku_id),
+                    quantity: String(component.required_per_bundle),
+                })));
+            })
+            .catch(() => setData(null));
+    }, [row]);
+
+    useEffect(() => {
+        if (row) load();
+        else setData(null);
+    }, [row, load]);
+
+    const save = async () => {
+        if (!row) return;
+        setSaving(true);
+        try {
+            const response = await apiSend<null>('PUT', `/inventory/bundles/${row.sku_id}`, {
+                components: lines
+                    .filter((line) => line.sku_id && Number(line.quantity) > 0)
+                    .map((line) => ({ sku_id: Number(line.sku_id), quantity: Number(line.quantity) })),
+            });
+            toast.success(response.message);
+            load();
+            onSaved();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Could not save the bundle.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Sheet open={row !== null} onOpenChange={(open) => !open && onClose()}>
+            <SheetContent className="w-full sm:max-w-lg">
+                <SheetHeader>
+                    <SheetTitle>{row?.sku_code} · bundle</SheetTitle>
+                    <SheetDescription>
+                        A bundle holds no stock of its own — it can only be built as far as its scarcest component allows.
+                    </SheetDescription>
+                </SheetHeader>
+
+                <div className="space-y-3 px-4">
+                    {data && lines.length > 0 && (
+                        <Card className="p-3">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Buildable right now</p>
+                            <p className="mt-1 text-2xl font-semibold tnum">{formatNumber(data.buildable)}</p>
+                            {data.limiting_sku && (
+                                <p className="mt-0.5 text-[11px] text-muted-foreground">Limited by {data.limiting_sku}</p>
+                            )}
+                        </Card>
+                    )}
+
+                    {can('catalog.bundles.manage') && (
+                        <div className="space-y-2">
+                            {lines.map((line, index) => (
+                                <div key={index} className="flex items-end gap-1.5">
+                                    <div className="flex-1 space-y-1">
+                                        <Label className="text-[10px]">Component</Label>
+                                        <Select
+                                            value={line.sku_id}
+                                            onValueChange={(value) => setLines((current) =>
+                                                current.map((item, position) => (position === index ? { ...item, sku_id: value } : item)))}
+                                        >
+                                            <SelectTrigger><SelectValue placeholder="Pick a SKU" /></SelectTrigger>
+                                            <SelectContent>
+                                                {rows.filter((option) => option.sku_id !== row?.sku_id).slice(0, 300).map((option) => (
+                                                    <SelectItem key={option.sku_id} value={String(option.sku_id)}>
+                                                        {option.sku_code} — {option.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="w-20 space-y-1">
+                                        <Label className="text-[10px]">Per set</Label>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            value={line.quantity}
+                                            onChange={(event) => setLines((current) =>
+                                                current.map((item, position) => (position === index ? { ...item, quantity: event.target.value } : item)))}
+                                        />
+                                    </div>
+                                    <Button variant="ghost" size="icon" aria-label="Remove component" onClick={() => setLines((current) => current.filter((_, position) => position !== index))}>
+                                        <Trash2 className="size-4" />
+                                    </Button>
+                                </div>
+                            ))}
+
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setLines((current) => [...current, { sku_id: '', quantity: '1' }])}>
+                                    <Plus className="size-3.5" /> Add component
+                                </Button>
+                                <Button size="sm" onClick={save} disabled={saving}>
+                                    {saving && <Loader2 className="size-4 animate-spin" />} Save bundle
+                                </Button>
+                            </div>
+
+                            {lines.length === 0 && (
+                                <p className="text-[11px] text-muted-foreground">
+                                    No components — this SKU carries its own stock. Add one to turn it into a bundle.
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+function ExpirySheet({
+    open,
+    onOpenChange,
+    onSaved,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSaved: () => void;
+}) {
+    const { can } = usePermissions();
+    const [data, setData] = useState<{
+        rows: (BatchRow & { sku_code: string; name: string; value_at_cost: number })[];
+        value_at_risk: number;
+        expired_units: number;
+    } | null>(null);
+    const [days, setDays] = useState('90');
+
+    const load = useCallback(() => {
+        apiGet<{ rows: (BatchRow & { sku_code: string; name: string; value_at_cost: number })[]; value_at_risk: number; expired_units: number }>(
+            '/inventory/batches/expiring',
+            { within_days: days },
+        )
+            .then((response) => setData(response.data))
+            .catch(() => setData(null));
+    }, [days]);
+
+    useEffect(() => {
+        if (open) load();
+    }, [open, load]);
+
+    return (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent className="w-full sm:max-w-xl">
+                <SheetHeader>
+                    <SheetTitle>Expiring stock</SheetTitle>
+                    <SheetDescription>
+                        {formatCurrency(data?.value_at_risk ?? 0)} at cost is on a clock
+                        {(data?.expired_units ?? 0) > 0 && `, and ${formatNumber(data?.expired_units ?? 0)} units have already gone`}.
+                    </SheetDescription>
+                </SheetHeader>
+
+                <div className="space-y-3 overflow-y-auto px-4">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="expiry-days">Look ahead (days)</Label>
+                        <Input id="expiry-days" type="number" min={1} value={days} onChange={(event) => setDays(event.target.value)} />
+                    </div>
+
+                    {data?.rows.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Nothing expires inside that window.</p>
+                    )}
+
+                    {data?.rows.map((batch) => (
+                        <Card key={batch.id} className="flex items-center justify-between gap-3 p-3">
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium">
+                                    {batch.sku_code} · {batch.batch_code}
+                                    {batch.is_expired && <Badge variant="bad" className="ml-1.5">expired</Badge>}
+                                </p>
+                                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                    {batch.name} · {formatNumber(batch.quantity)} units
+                                    {batch.expires_on && ` · ${formatDate(batch.expires_on)}`}
+                                    {batch.days_to_expiry !== null && !batch.is_expired && ` (${batch.days_to_expiry}d left)`}
+                                </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                                <span className="text-xs font-semibold tnum">{formatCurrency(batch.value_at_cost)}</span>
+                                {can('catalog.batches.manage') && batch.is_expired && (
+                                    <Button
+                                        size="xs"
+                                        variant="outline"
+                                        onClick={async () => {
+                                            try {
+                                                const response = await apiSend<null>('POST', `/inventory/batches/${batch.id}/write-off`);
+                                                toast.success(response.message);
+                                                load();
+                                                onSaved();
+                                            } catch (error) {
+                                                toast.error(error instanceof Error ? error.message : 'Could not write it off.');
+                                            }
+                                        }}
+                                    >
+                                        Write off
+                                    </Button>
+                                )}
+                            </div>
+                        </Card>
+                    ))}
                 </div>
             </SheetContent>
         </Sheet>

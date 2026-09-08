@@ -58,6 +58,14 @@ class MetricResolver
                 'label' => 'Days of stock cover', 'unit' => 'days', 'dimension' => 'sku',
                 'description' => 'How long current stock lasts at the recent sell-through rate.', 'higher_is_worse' => false,
             ],
+            'stock_on_hand' => [
+                'label' => 'Units on hand', 'unit' => 'number', 'dimension' => 'sku',
+                'description' => 'Managed stock left for a SKU, so you hear about it before it hits zero.', 'higher_is_worse' => false,
+            ],
+            'expiring_stock_days' => [
+                'label' => 'Days to expiry', 'unit' => 'days', 'dimension' => 'batch',
+                'description' => 'How long the closest-dated batch still has. Fires while the stock is still sellable.', 'higher_is_worse' => false,
+            ],
             'unshipped_age_days' => [
                 'label' => 'Oldest unshipped order (days)', 'unit' => 'days', 'dimension' => null,
                 'description' => 'Age of the oldest order still waiting to be dispatched.', 'higher_is_worse' => true,
@@ -100,9 +108,71 @@ class MetricResolver
             ]],
             'campaign_roas' => $this->campaignRoas($filters),
             'days_of_cover' => $this->daysOfCover(),
+            'stock_on_hand' => $this->stockOnHand(),
+            'expiring_stock_days' => $this->expiringStock(),
             'unshipped_age_days' => $this->oldestUnshipped(),
             default => [],
         };
+    }
+
+    /**
+     * Managed stock per SKU. Only stock-tracked SKUs that have actually sold
+     * recently are reported — alerting on a dormant line is just noise.
+     *
+     * @return list<array{dimension: string|null, value: float, context: array<string, mixed>}>
+     */
+    private function stockOnHand(): array
+    {
+        return DB::table('skus as s')
+            ->join('inventory as i', function ($join): void {
+                $join->on('i.sku_id', '=', 's.id')->where('i.source', 'manual');
+            })
+            ->leftJoin('sku_daily_rollup as r', function ($join): void {
+                $join->on('r.sku_id', '=', 's.id')
+                    ->where('r.date', '>=', now(Tenant::timezone())->subDays(30)->toDateString());
+            })
+            ->where('s.tenant_id', Tenant::id())
+            ->where('s.is_active', true)
+            ->where('s.tracks_inventory', true)
+            ->selectRaw('s.sku_code, COALESCE(MAX(i.on_hand), 0) AS on_hand, COALESCE(SUM(r.units_sold), 0) AS units_30d')
+            ->groupBy('s.id', 's.sku_code')
+            ->havingRaw('SUM(r.units_sold) > 0')
+            ->get()
+            ->map(static fn (object $row): array => [
+                'dimension' => $row->sku_code,
+                'value' => (float) $row->on_hand,
+                'context' => ['sold_30d' => (int) $row->units_30d],
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Days left on each batch that still has stock in it.
+     *
+     * @return list<array{dimension: string|null, value: float, context: array<string, mixed>}>
+     */
+    private function expiringStock(): array
+    {
+        return DB::table('stock_batches as b')
+            ->join('skus as s', 's.id', '=', 'b.sku_id')
+            ->where('b.tenant_id', Tenant::id())
+            ->where('b.quantity', '>', 0)
+            ->whereNotNull('b.expires_on')
+            ->selectRaw('s.sku_code, b.batch_code, b.quantity, b.unit_cost, DATEDIFF(b.expires_on, CURDATE()) AS days_left')
+            ->orderBy('b.expires_on')
+            ->limit(200)
+            ->get()
+            ->map(static fn (object $row): array => [
+                'dimension' => $row->sku_code.' · '.$row->batch_code,
+                'value' => (float) $row->days_left,
+                'context' => [
+                    'units' => (int) $row->quantity,
+                    'value_at_risk' => Money::format((int) $row->quantity * (int) $row->unit_cost),
+                ],
+            ])
+            ->values()
+            ->all();
     }
 
     /**

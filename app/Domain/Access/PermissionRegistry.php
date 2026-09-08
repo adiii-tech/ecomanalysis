@@ -221,11 +221,14 @@ final class PermissionRegistry
                     'transfers' => 'Stock transfers',
                     'movements' => 'Stock ledger',
                     'reconciliation' => 'Channel stock reconciliation',
+                    'batches' => 'Batch & expiry tracking',
+                    'bundles' => 'Bundles & kits',
                 ],
                 'exportable' => 'all',
                 'manageable' => [
                     'cost_editor', 'stock', 'locations', 'sku_editor',
                     'suppliers', 'purchase_orders', 'stock_counts', 'transfers',
+                    'batches', 'bundles',
                 ],
             ],
             'reports' => [
@@ -257,6 +260,8 @@ final class PermissionRegistry
                     'sku_margin_waterfall' => 'SKU margin waterfall',
                     'contribution_by_cohort' => 'Contribution by cohort',
                     'forecast' => 'Forecast',
+                    'stock_ledger' => 'Stock ledger',
+                    'inventory_valuation' => 'Inventory valuation',
                 ],
                 'exportable' => 'all',
                 'manageable' => ['library'],

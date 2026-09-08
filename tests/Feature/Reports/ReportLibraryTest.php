@@ -115,7 +115,7 @@ it('gives every report a unique slug, key and permission that exists', function 
     $reports = app(ReportRegistry::class)->all();
     $permissions = PermissionRegistry::all();
 
-    expect($reports)->toHaveCount(25);
+    expect($reports)->toHaveCount(27);
 
     foreach ($reports as $slug => $report) {
         expect($slug)->toBe($report->slug());

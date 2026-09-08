@@ -1,8 +1,8 @@
 import { t as cn } from "./utils-BVTyW6jK.js";
 import { n as Label, r as Button, t as Input } from "./input-C0zE_xzz.js";
-import { a as SelectContent, c as SelectValue, i as Select, o as SelectItem, s as SelectTrigger, t as AppLayout } from "./app-layout-DdOsQy6Y.js";
+import { a as SelectContent, c as SelectValue, i as Select, o as SelectItem, s as SelectTrigger, t as AppLayout } from "./app-layout-DhPbmqLN.js";
 import { a as apiSend, i as apiGet, n as WidgetError, s as usePermissions } from "./empty-state-DjIQjBC7.js";
-import { c as formatDateTime, f as formatNumber, o as formatCurrency, t as Card } from "./card-DJDNvUnK.js";
+import { c as formatDateTime, f as formatNumber, o as formatCurrency, s as formatDate, t as Card } from "./card-DJDNvUnK.js";
 import { t as Badge } from "./badge-CFyLZ3R-.js";
 import { i as VerdictNote, t as ChartCard } from "./chart-card-CZPTjzl-.js";
 import { n as SkeletonChart } from "./skeleton-DUakt-29.js";
@@ -13,7 +13,7 @@ import { n as TabsList, r as TabsTrigger, t as Tabs } from "./tabs-CadgG3dj.js";
 import { Head, Link } from "@inertiajs/react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRightLeft, ClipboardList, Loader2, Pencil, Plus, ScrollText, Truck, Upload, Warehouse } from "lucide-react";
+import { ArrowRightLeft, Boxes, CalendarClock, ClipboardList, Layers, Loader2, Pencil, Plus, ScrollText, Trash2, Truck, Upload, Warehouse } from "lucide-react";
 import { toast } from "sonner";
 //#region resources/js/pages/inventory/index.tsx
 var FILTERS = [
@@ -50,6 +50,9 @@ function InventoryIndex() {
 	const [importing, setImporting] = useState(false);
 	const [transferring, setTransferring] = useState(false);
 	const [locationsOpen, setLocationsOpen] = useState(false);
+	const [batchesFor, setBatchesFor] = useState(null);
+	const [bundleFor, setBundleFor] = useState(null);
+	const [expiryOpen, setExpiryOpen] = useState(false);
 	const load = useCallback(() => {
 		setLoading(true);
 		apiGet("/inventory/levels", {
@@ -167,19 +170,36 @@ function InventoryIndex() {
 			header: "",
 			render: (row) => /* @__PURE__ */ jsxs("div", {
 				className: "flex justify-end gap-0.5",
-				children: [/* @__PURE__ */ jsx(Button, {
-					variant: "ghost",
-					size: "icon",
-					"aria-label": `Ledger for ${row.sku_code}`,
-					onClick: () => setLedgerFor(row),
-					children: /* @__PURE__ */ jsx(ScrollText, { className: "size-3.5" })
-				}), can("catalog.stock.manage") && /* @__PURE__ */ jsx(Button, {
-					variant: "ghost",
-					size: "icon",
-					"aria-label": `Adjust ${row.sku_code}`,
-					onClick: () => setAdjusting(row),
-					children: /* @__PURE__ */ jsx(Pencil, { className: "size-3.5" })
-				})]
+				children: [
+					/* @__PURE__ */ jsx(Button, {
+						variant: "ghost",
+						size: "icon",
+						"aria-label": `Ledger for ${row.sku_code}`,
+						onClick: () => setLedgerFor(row),
+						children: /* @__PURE__ */ jsx(ScrollText, { className: "size-3.5" })
+					}),
+					/* @__PURE__ */ jsx(Button, {
+						variant: "ghost",
+						size: "icon",
+						"aria-label": `Batches for ${row.sku_code}`,
+						onClick: () => setBatchesFor(row),
+						children: /* @__PURE__ */ jsx(Layers, { className: "size-3.5" })
+					}),
+					/* @__PURE__ */ jsx(Button, {
+						variant: "ghost",
+						size: "icon",
+						"aria-label": `Bundle for ${row.sku_code}`,
+						onClick: () => setBundleFor(row),
+						children: /* @__PURE__ */ jsx(Boxes, { className: "size-3.5" })
+					}),
+					can("catalog.stock.manage") && /* @__PURE__ */ jsx(Button, {
+						variant: "ghost",
+						size: "icon",
+						"aria-label": `Adjust ${row.sku_code}`,
+						onClick: () => setAdjusting(row),
+						children: /* @__PURE__ */ jsx(Pencil, { className: "size-3.5" })
+					})
+				]
 			})
 		}
 	], [can]);
@@ -218,6 +238,15 @@ function InventoryIndex() {
 							href: "/inventory/counts",
 							children: [/* @__PURE__ */ jsx(ClipboardList, { className: "size-3.5" }), " Counts"]
 						})
+					})
+				}),
+				/* @__PURE__ */ jsx(PermissionGuard, {
+					permission: "catalog.batches.view",
+					children: /* @__PURE__ */ jsxs(Button, {
+						variant: "outline",
+						size: "sm",
+						onClick: () => setExpiryOpen(true),
+						children: [/* @__PURE__ */ jsx(CalendarClock, { className: "size-3.5" }), " Expiry"]
 					})
 				}),
 				/* @__PURE__ */ jsx(PermissionGuard, {
@@ -358,6 +387,23 @@ function InventoryIndex() {
 				open: locationsOpen,
 				locations: data?.locations ?? [],
 				onOpenChange: setLocationsOpen,
+				onSaved: load
+			}),
+			/* @__PURE__ */ jsx(BatchesSheet, {
+				row: batchesFor,
+				locations: data?.locations ?? [],
+				onClose: () => setBatchesFor(null),
+				onSaved: load
+			}),
+			/* @__PURE__ */ jsx(BundleSheet, {
+				row: bundleFor,
+				rows: data?.rows ?? [],
+				onClose: () => setBundleFor(null),
+				onSaved: load
+			}),
+			/* @__PURE__ */ jsx(ExpirySheet, {
+				open: expiryOpen,
+				onOpenChange: setExpiryOpen,
 				onSaved: load
 			})
 		]
@@ -879,6 +925,419 @@ function LocationsSheet({ open, locations, onOpenChange, onSaved }) {
 						})
 					]
 				})]
+			})]
+		})
+	});
+}
+function BatchesSheet({ row, locations, onClose, onSaved }) {
+	const { can } = usePermissions();
+	const [data, setData] = useState(null);
+	const [code, setCode] = useState("");
+	const [quantity, setQuantity] = useState("");
+	const [cost, setCost] = useState("");
+	const [expires, setExpires] = useState("");
+	const [saving, setSaving] = useState(false);
+	const load = useCallback(() => {
+		if (!row) return;
+		apiGet(`/inventory/batches/${row.sku_id}`).then((response) => setData(response.data)).catch(() => setData(null));
+	}, [row]);
+	useEffect(() => {
+		if (row) {
+			load();
+			setCode("");
+			setQuantity("");
+			setCost(String((row.cost_price / 100).toFixed(2)));
+			setExpires("");
+		} else setData(null);
+	}, [row, load]);
+	const save = async () => {
+		if (!row) return;
+		setSaving(true);
+		try {
+			const response = await apiSend("POST", "/inventory/batches", {
+				sku_id: row.sku_id,
+				batch_code: code,
+				quantity: Number(quantity),
+				unit_cost: Number(cost || 0),
+				expires_on: expires || null,
+				location_id: locations.find((l) => l.is_default)?.id ?? null
+			});
+			toast.success(response.message);
+			setCode("");
+			setQuantity("");
+			load();
+			onSaved();
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Could not book the batch in.");
+		} finally {
+			setSaving(false);
+		}
+	};
+	return /* @__PURE__ */ jsx(Sheet, {
+		open: row !== null,
+		onOpenChange: (open) => !open && onClose(),
+		children: /* @__PURE__ */ jsxs(SheetContent, {
+			className: "w-full sm:max-w-xl",
+			children: [/* @__PURE__ */ jsxs(SheetHeader, { children: [/* @__PURE__ */ jsxs(SheetTitle, { children: [row?.sku_code, " · batches"] }), /* @__PURE__ */ jsxs(SheetDescription, { children: [
+				"Stock leaves closest-expiry-first. ",
+				formatNumber(data?.total_units ?? 0),
+				" units in batches, worth ",
+				formatCurrency(data?.total_value ?? 0),
+				" at what they actually cost."
+			] })] }), /* @__PURE__ */ jsxs("div", {
+				className: "space-y-3 overflow-y-auto px-4",
+				children: [
+					data?.rows.length === 0 && /* @__PURE__ */ jsx("p", {
+						className: "text-sm text-muted-foreground",
+						children: "No batches yet."
+					}),
+					data?.rows.map((batch) => /* @__PURE__ */ jsxs(Card, {
+						className: "flex items-center justify-between gap-3 p-3",
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "min-w-0",
+							children: [/* @__PURE__ */ jsxs("p", {
+								className: "text-xs font-medium",
+								children: [batch.batch_code, batch.is_expired && /* @__PURE__ */ jsx(Badge, {
+									variant: "bad",
+									className: "ml-1.5",
+									children: "expired"
+								})]
+							}), /* @__PURE__ */ jsxs("p", {
+								className: "mt-0.5 text-[11px] text-muted-foreground",
+								children: [
+									formatNumber(batch.quantity),
+									" units · ",
+									formatCurrency(batch.unit_cost),
+									"/unit",
+									batch.expires_on && ` · expires ${formatDate(batch.expires_on)}`,
+									batch.days_to_expiry !== null && !batch.is_expired && ` (${batch.days_to_expiry}d)`
+								]
+							})]
+						}), /* @__PURE__ */ jsxs("div", {
+							className: "flex shrink-0 items-center gap-2",
+							children: [/* @__PURE__ */ jsx("span", {
+								className: "text-xs font-semibold tnum",
+								children: formatCurrency(batch.value)
+							}), can("catalog.batches.manage") && batch.quantity > 0 && /* @__PURE__ */ jsx(Button, {
+								variant: "ghost",
+								size: "icon",
+								"aria-label": `Write off ${batch.batch_code}`,
+								onClick: async () => {
+									try {
+										const response = await apiSend("POST", `/inventory/batches/${batch.id}/write-off`);
+										toast.success(response.message);
+										load();
+										onSaved();
+									} catch (error) {
+										toast.error(error instanceof Error ? error.message : "Could not write it off.");
+									}
+								},
+								children: /* @__PURE__ */ jsx(Trash2, { className: "size-3.5" })
+							})]
+						})]
+					}, batch.id)),
+					can("catalog.batches.manage") && /* @__PURE__ */ jsxs("div", {
+						className: "space-y-2 border-t border-border pt-3",
+						children: [
+							/* @__PURE__ */ jsx("p", {
+								className: "text-xs font-medium",
+								children: "Book a batch in"
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-2 gap-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											htmlFor: "batch-code",
+											children: "Batch code"
+										}), /* @__PURE__ */ jsx(Input, {
+											id: "batch-code",
+											value: code,
+											onChange: (event) => setCode(event.target.value),
+											placeholder: "B-2609"
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											htmlFor: "batch-qty",
+											children: "Quantity"
+										}), /* @__PURE__ */ jsx(Input, {
+											id: "batch-qty",
+											type: "number",
+											min: 1,
+											value: quantity,
+											onChange: (event) => setQuantity(event.target.value)
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											htmlFor: "batch-cost",
+											children: "Unit cost (₹)"
+										}), /* @__PURE__ */ jsx(Input, {
+											id: "batch-cost",
+											type: "number",
+											value: cost,
+											onChange: (event) => setCost(event.target.value)
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											htmlFor: "batch-expires",
+											children: "Expires on"
+										}), /* @__PURE__ */ jsx(Input, {
+											id: "batch-expires",
+											type: "date",
+											value: expires,
+											onChange: (event) => setExpires(event.target.value)
+										})]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								className: "w-full",
+								onClick: save,
+								disabled: saving || !code || !quantity,
+								children: [saving && /* @__PURE__ */ jsx(Loader2, { className: "size-4 animate-spin" }), " Book in"]
+							})
+						]
+					})
+				]
+			})]
+		})
+	});
+}
+function BundleSheet({ row, rows, onClose, onSaved }) {
+	const { can } = usePermissions();
+	const [data, setData] = useState(null);
+	const [lines, setLines] = useState([]);
+	const [saving, setSaving] = useState(false);
+	const load = useCallback(() => {
+		if (!row) return;
+		apiGet(`/inventory/bundles/${row.sku_id}`).then((response) => {
+			setData(response.data);
+			setLines(response.data.components.map((component) => ({
+				sku_id: String(component.sku_id),
+				quantity: String(component.required_per_bundle)
+			})));
+		}).catch(() => setData(null));
+	}, [row]);
+	useEffect(() => {
+		if (row) load();
+		else setData(null);
+	}, [row, load]);
+	const save = async () => {
+		if (!row) return;
+		setSaving(true);
+		try {
+			const response = await apiSend("PUT", `/inventory/bundles/${row.sku_id}`, { components: lines.filter((line) => line.sku_id && Number(line.quantity) > 0).map((line) => ({
+				sku_id: Number(line.sku_id),
+				quantity: Number(line.quantity)
+			})) });
+			toast.success(response.message);
+			load();
+			onSaved();
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Could not save the bundle.");
+		} finally {
+			setSaving(false);
+		}
+	};
+	return /* @__PURE__ */ jsx(Sheet, {
+		open: row !== null,
+		onOpenChange: (open) => !open && onClose(),
+		children: /* @__PURE__ */ jsxs(SheetContent, {
+			className: "w-full sm:max-w-lg",
+			children: [/* @__PURE__ */ jsxs(SheetHeader, { children: [/* @__PURE__ */ jsxs(SheetTitle, { children: [row?.sku_code, " · bundle"] }), /* @__PURE__ */ jsx(SheetDescription, { children: "A bundle holds no stock of its own — it can only be built as far as its scarcest component allows." })] }), /* @__PURE__ */ jsxs("div", {
+				className: "space-y-3 px-4",
+				children: [data && lines.length > 0 && /* @__PURE__ */ jsxs(Card, {
+					className: "p-3",
+					children: [
+						/* @__PURE__ */ jsx("p", {
+							className: "text-[11px] font-medium uppercase tracking-wide text-muted-foreground",
+							children: "Buildable right now"
+						}),
+						/* @__PURE__ */ jsx("p", {
+							className: "mt-1 text-2xl font-semibold tnum",
+							children: formatNumber(data.buildable)
+						}),
+						data.limiting_sku && /* @__PURE__ */ jsxs("p", {
+							className: "mt-0.5 text-[11px] text-muted-foreground",
+							children: ["Limited by ", data.limiting_sku]
+						})
+					]
+				}), can("catalog.bundles.manage") && /* @__PURE__ */ jsxs("div", {
+					className: "space-y-2",
+					children: [
+						lines.map((line, index) => /* @__PURE__ */ jsxs("div", {
+							className: "flex items-end gap-1.5",
+							children: [
+								/* @__PURE__ */ jsxs("div", {
+									className: "flex-1 space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Component"
+									}), /* @__PURE__ */ jsxs(Select, {
+										value: line.sku_id,
+										onValueChange: (value) => setLines((current) => current.map((item, position) => position === index ? {
+											...item,
+											sku_id: value
+										} : item)),
+										children: [/* @__PURE__ */ jsx(SelectTrigger, { children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Pick a SKU" }) }), /* @__PURE__ */ jsx(SelectContent, { children: rows.filter((option) => option.sku_id !== row?.sku_id).slice(0, 300).map((option) => /* @__PURE__ */ jsxs(SelectItem, {
+											value: String(option.sku_id),
+											children: [
+												option.sku_code,
+												" — ",
+												option.name
+											]
+										}, option.sku_id)) })]
+									})]
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "w-20 space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Per set"
+									}), /* @__PURE__ */ jsx(Input, {
+										type: "number",
+										min: 1,
+										value: line.quantity,
+										onChange: (event) => setLines((current) => current.map((item, position) => position === index ? {
+											...item,
+											quantity: event.target.value
+										} : item))
+									})]
+								}),
+								/* @__PURE__ */ jsx(Button, {
+									variant: "ghost",
+									size: "icon",
+									"aria-label": "Remove component",
+									onClick: () => setLines((current) => current.filter((_, position) => position !== index)),
+									children: /* @__PURE__ */ jsx(Trash2, { className: "size-4" })
+								})
+							]
+						}, index)),
+						/* @__PURE__ */ jsxs("div", {
+							className: "flex gap-2",
+							children: [/* @__PURE__ */ jsxs(Button, {
+								variant: "outline",
+								size: "sm",
+								onClick: () => setLines((current) => [...current, {
+									sku_id: "",
+									quantity: "1"
+								}]),
+								children: [/* @__PURE__ */ jsx(Plus, { className: "size-3.5" }), " Add component"]
+							}), /* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								onClick: save,
+								disabled: saving,
+								children: [saving && /* @__PURE__ */ jsx(Loader2, { className: "size-4 animate-spin" }), " Save bundle"]
+							})]
+						}),
+						lines.length === 0 && /* @__PURE__ */ jsx("p", {
+							className: "text-[11px] text-muted-foreground",
+							children: "No components — this SKU carries its own stock. Add one to turn it into a bundle."
+						})
+					]
+				})]
+			})]
+		})
+	});
+}
+function ExpirySheet({ open, onOpenChange, onSaved }) {
+	const { can } = usePermissions();
+	const [data, setData] = useState(null);
+	const [days, setDays] = useState("90");
+	const load = useCallback(() => {
+		apiGet("/inventory/batches/expiring", { within_days: days }).then((response) => setData(response.data)).catch(() => setData(null));
+	}, [days]);
+	useEffect(() => {
+		if (open) load();
+	}, [open, load]);
+	return /* @__PURE__ */ jsx(Sheet, {
+		open,
+		onOpenChange,
+		children: /* @__PURE__ */ jsxs(SheetContent, {
+			className: "w-full sm:max-w-xl",
+			children: [/* @__PURE__ */ jsxs(SheetHeader, { children: [/* @__PURE__ */ jsx(SheetTitle, { children: "Expiring stock" }), /* @__PURE__ */ jsxs(SheetDescription, { children: [
+				formatCurrency(data?.value_at_risk ?? 0),
+				" at cost is on a clock",
+				(data?.expired_units ?? 0) > 0 && `, and ${formatNumber(data?.expired_units ?? 0)} units have already gone`,
+				"."
+			] })] }), /* @__PURE__ */ jsxs("div", {
+				className: "space-y-3 overflow-y-auto px-4",
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "space-y-1.5",
+						children: [/* @__PURE__ */ jsx(Label, {
+							htmlFor: "expiry-days",
+							children: "Look ahead (days)"
+						}), /* @__PURE__ */ jsx(Input, {
+							id: "expiry-days",
+							type: "number",
+							min: 1,
+							value: days,
+							onChange: (event) => setDays(event.target.value)
+						})]
+					}),
+					data?.rows.length === 0 && /* @__PURE__ */ jsx("p", {
+						className: "text-sm text-muted-foreground",
+						children: "Nothing expires inside that window."
+					}),
+					data?.rows.map((batch) => /* @__PURE__ */ jsxs(Card, {
+						className: "flex items-center justify-between gap-3 p-3",
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "min-w-0",
+							children: [/* @__PURE__ */ jsxs("p", {
+								className: "text-xs font-medium",
+								children: [
+									batch.sku_code,
+									" · ",
+									batch.batch_code,
+									batch.is_expired && /* @__PURE__ */ jsx(Badge, {
+										variant: "bad",
+										className: "ml-1.5",
+										children: "expired"
+									})
+								]
+							}), /* @__PURE__ */ jsxs("p", {
+								className: "mt-0.5 truncate text-[11px] text-muted-foreground",
+								children: [
+									batch.name,
+									" · ",
+									formatNumber(batch.quantity),
+									" units",
+									batch.expires_on && ` · ${formatDate(batch.expires_on)}`,
+									batch.days_to_expiry !== null && !batch.is_expired && ` (${batch.days_to_expiry}d left)`
+								]
+							})]
+						}), /* @__PURE__ */ jsxs("div", {
+							className: "flex shrink-0 items-center gap-2",
+							children: [/* @__PURE__ */ jsx("span", {
+								className: "text-xs font-semibold tnum",
+								children: formatCurrency(batch.value_at_cost)
+							}), can("catalog.batches.manage") && batch.is_expired && /* @__PURE__ */ jsx(Button, {
+								size: "xs",
+								variant: "outline",
+								onClick: async () => {
+									try {
+										const response = await apiSend("POST", `/inventory/batches/${batch.id}/write-off`);
+										toast.success(response.message);
+										load();
+										onSaved();
+									} catch (error) {
+										toast.error(error instanceof Error ? error.message : "Could not write it off.");
+									}
+								},
+								children: "Write off"
+							})]
+						})]
+					}, batch.id))
+				]
 			})]
 		})
 	});
