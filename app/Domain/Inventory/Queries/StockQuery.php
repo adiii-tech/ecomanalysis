@@ -24,12 +24,22 @@ class StockQuery
      */
     public function levels(?int $locationId = null, ?string $search = null, string $filter = 'all'): array
     {
+        // What a sales channel reports, shown for SKUs whose stock is not managed
+        // here. Channel stock carries no location, so it only fits the all-locations view.
+        $channelStock = DB::table('inventory')
+            ->where('tenant_id', Tenant::id())
+            ->where('source', '!=', StockLedger::SOURCE)
+            ->when($locationId !== null, fn ($q) => $q->whereRaw('1 = 0'))
+            ->groupBy('sku_id')
+            ->selectRaw('sku_id, MAX(on_hand) AS on_hand, MAX(reserved) AS reserved, MAX(available) AS available, MIN(source) AS source');
+
         $rows = DB::table('skus as s')
             ->leftJoin('inventory as i', function ($join) use ($locationId): void {
                 $join->on('i.sku_id', '=', 's.id')
                     ->where('i.source', StockLedger::SOURCE)
                     ->when($locationId !== null, fn ($q) => $q->where('i.location_id', $locationId));
             })
+            ->leftJoinSub($channelStock, 'ch', 'ch.sku_id', '=', 's.id')
             ->leftJoin('suppliers as sup', 'sup.id', '=', 's.supplier_id')
             ->leftJoin('sku_daily_rollup as r', function ($join): void {
                 $join->on('r.sku_id', '=', 's.id')
@@ -47,6 +57,9 @@ class StockQuery
             ->selectRaw('sup.name AS supplier_name')
             ->selectRaw('COALESCE(MAX(i.on_hand), 0) AS on_hand, COALESCE(MAX(i.reserved), 0) AS reserved')
             ->selectRaw('COALESCE(MAX(i.available), 0) AS available, COALESCE(MAX(i.incoming), 0) AS incoming')
+            ->selectRaw('MAX(i.id) AS managed_row')
+            ->selectRaw('MAX(ch.on_hand) AS channel_on_hand, MAX(ch.reserved) AS channel_reserved')
+            ->selectRaw('MAX(ch.available) AS channel_available, MAX(ch.source) AS channel_source')
             ->selectRaw('COALESCE(SUM(r.units_sold), 0) AS units_30d')
             ->groupBy('s.id', 's.sku_code', 's.name', 's.category', 's.image_url', 's.barcode',
                 's.cost_price', 's.selling_price', 's.reorder_point', 's.safety_stock',
@@ -55,7 +68,9 @@ class StockQuery
             ->limit(2000)
             ->get()
             ->map(static function (object $row): array {
-                $onHand = (int) $row->on_hand;
+                // Stock managed here wins; without it, what the channel reports beats a misleading zero.
+                $managed = $row->managed_row !== null || $row->channel_source === null;
+                $onHand = $managed ? (int) $row->on_hand : (int) $row->channel_on_hand;
                 $dailyRate = round(Num::safeDivide((int) $row->units_30d, 30), 3);
                 $cover = $dailyRate > 0 ? round($onHand / $dailyRate, 1) : ($onHand > 0 ? 999.0 : 0.0);
 
@@ -74,8 +89,9 @@ class StockQuery
                     'supplier_name' => $row->supplier_name,
                     'tracks_inventory' => (bool) $row->tracks_inventory,
                     'on_hand' => $onHand,
-                    'reserved' => (int) $row->reserved,
-                    'available' => (int) $row->available,
+                    'reserved' => $managed ? (int) $row->reserved : (int) $row->channel_reserved,
+                    'available' => $managed ? (int) $row->available : (int) $row->channel_available,
+                    'stock_source' => $managed ? StockLedger::SOURCE : $row->channel_source,
                     'incoming' => (int) $row->incoming,
                     'cost_price' => (int) $row->cost_price,
                     'selling_price' => (int) $row->selling_price,

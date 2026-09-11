@@ -152,6 +152,38 @@ abstract class AbstractConnector implements ConnectorContract
     }
 
     /**
+     * Stock a channel reports has no location, and MySQL never treats two NULLs
+     * as equal — so an upsert keyed on location inserted a fresh row on every
+     * sync and every SUM over stock multiplied. Rows are matched by SKU instead,
+     * and copies an earlier sync left behind are dropped first.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    protected function upsertChannelStock(int $tenantId, string $source, array $rows): int
+    {
+        DB::statement(<<<'SQL'
+            DELETE stale FROM inventory stale
+            JOIN inventory newer
+              ON newer.tenant_id = stale.tenant_id
+             AND newer.sku_id = stale.sku_id
+             AND newer.source = stale.source
+             AND newer.location_id IS NULL
+             AND newer.id > stale.id
+            WHERE stale.tenant_id = ? AND stale.source = ? AND stale.location_id IS NULL
+        SQL, [$tenantId, $source]);
+
+        $existing = DB::table('inventory')
+            ->where('tenant_id', $tenantId)
+            ->where('source', $source)
+            ->whereNull('location_id')
+            ->pluck('id', 'sku_id');
+
+        $rows = array_map(static fn (array $row): array => ['id' => $existing[$row['sku_id']] ?? null, ...$row], $rows);
+
+        return $this->upsert('inventory', $rows, ['id'], ['on_hand', 'reserved', 'available', 'synced_at', 'updated_at']);
+    }
+
+    /**
      * Default: a connector that only stores credentials and verifies them.
      *
      * @param  array<string, mixed>  $credentials

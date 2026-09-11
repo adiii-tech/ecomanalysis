@@ -507,10 +507,7 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
             }
         }
 
-        $upserted = $this->upsert('inventory', $rows,
-            ['tenant_id', 'sku_id', 'location_id', 'source'],
-            ['on_hand', 'available', 'reserved', 'synced_at', 'updated_at'],
-        );
+        $upserted = $this->upsertChannelStock($ctx->tenant->id, 'shopify', $rows);
 
         return SyncReport::of('inventory', $fetched, $upserted, now()->toIso8601String());
     }

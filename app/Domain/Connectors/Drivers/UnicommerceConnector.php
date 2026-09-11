@@ -176,10 +176,7 @@ class UnicommerceConnector extends AbstractConnector
             ];
         }
 
-        $upserted = $this->upsert('inventory', $rows,
-            ['tenant_id', 'sku_id', 'location_id', 'source'],
-            ['on_hand', 'reserved', 'available', 'synced_at', 'updated_at'],
-        );
+        $upserted = $this->upsertChannelStock($ctx->tenant->id, 'unicommerce', $rows);
 
         return SyncReport::of('inventory', $fetched, $upserted, now()->toIso8601String());
     }

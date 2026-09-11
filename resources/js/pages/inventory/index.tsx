@@ -49,6 +49,7 @@ interface StockRow {
     reorder_quantity: number | null;
     lead_time_days: number | null;
     needs_reorder: boolean;
+    stock_source: string;
 }
 
 interface LocationRow {
@@ -154,7 +155,14 @@ export default function InventoryIndex() {
             value: (row) => row.on_hand,
             render: (row) =>
                 row.tracks_inventory ? (
-                    <span className={cn('tnum font-medium', row.on_hand <= 0 && 'text-bad')}>{formatNumber(row.on_hand)}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                        {row.stock_source !== 'manual' && (
+                            <span title={`Reported by ${row.stock_source}. Adjusting it here starts stock managed in this app.`}>
+                                <Badge variant="muted">{row.stock_source}</Badge>
+                            </span>
+                        )}
+                        <span className={cn('tnum font-medium', row.on_hand <= 0 && 'text-bad')}>{formatNumber(row.on_hand)}</span>
+                    </span>
                 ) : (
                     <Badge variant="muted">not tracked</Badge>
                 ),
