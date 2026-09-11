@@ -88,7 +88,7 @@ class SyncHealthQuery
     public function missing(array $required): array
     {
         $connected = Connector::query()
-            ->where('status', ConnectorStatus::Connected)
+            ->connected()
             ->pluck('connector_id')
             ->all();
 

@@ -42,6 +42,7 @@ class ConnectorController extends Controller
                 ...$driver,
                 'status' => $model?->status->value ?? ConnectorStatus::Disconnected->value,
                 'status_label' => ($model?->status ?? ConnectorStatus::Disconnected)->label(),
+                'is_connected' => $model?->isConnected() ?? false,
                 'account_label' => $model?->account_label,
                 'last_connected_at' => $model?->last_connected_at?->toIso8601String(),
                 'last_synced_at' => $model?->last_synced_at?->toIso8601String(),
@@ -67,7 +68,7 @@ class ConnectorController extends Controller
         return ApiResponse::ok([
             'live' => $rows->reject(fn (array $row): bool => $row['is_stub'])->values()->all(),
             'phase_two' => $rows->filter(fn (array $row): bool => $row['is_stub'])->values()->all(),
-            'connected_count' => $connected->where('status', ConnectorStatus::Connected)->count(),
+            'connected_count' => $connected->filter(fn (Connector $model): bool => $model->isConnected())->count(),
             'health' => $this->health->summary(),
         ]);
     }

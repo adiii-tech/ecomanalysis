@@ -6,7 +6,6 @@ namespace App\Console\Commands;
 
 use App\Domain\Connectors\ConnectorRegistry;
 use App\Domain\Connectors\Jobs\SyncConnectorEntity;
-use App\Enums\ConnectorStatus;
 use App\Models\Connector;
 use App\Models\SyncRun;
 use App\Models\Tenant;
@@ -35,7 +34,7 @@ class ScheduleConnectorSyncs extends Command
                 $connectors = Connector::query()
                     ->withoutGlobalScopes()
                     ->where('tenant_id', $tenant->id)
-                    ->where('status', ConnectorStatus::Connected)
+                    ->connected()
                     ->get();
 
                 foreach ($connectors as $connector) {

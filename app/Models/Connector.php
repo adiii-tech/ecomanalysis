@@ -8,6 +8,7 @@ use App\Enums\AuthType;
 use App\Enums\ConnectorStatus;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -31,6 +32,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Connector extends Model
 {
     use BelongsToTenant;
+
+    /**
+     * States a connector passes through while its credentials still work. A sync
+     * in progress, or one that failed, is a moment in a connection's life rather
+     * than its end — treating them as disconnected stopped every later sync and
+     * sent merchants back through OAuth.
+     *
+     * @var list<ConnectorStatus>
+     */
+    public const LIVE_STATUSES = [ConnectorStatus::Connected, ConnectorStatus::Syncing, ConnectorStatus::Error];
 
     protected $guarded = [];
 
@@ -59,9 +70,20 @@ class Connector extends Model
             ->where('tenant_id', $this->tenant_id);
     }
 
+    /**
+     * Holds credentials and is in a live state. An authorisation that failed
+     * before any credentials were stored is still an error, not a connection.
+     */
     public function isConnected(): bool
     {
-        return $this->status === ConnectorStatus::Connected;
+        return in_array($this->status, self::LIVE_STATUSES, true) && filled($this->credentials);
+    }
+
+    /** @param Builder<Connector> $query */
+    public function scopeConnected(Builder $query): void
+    {
+        $query->whereIn('status', array_map(static fn (ConnectorStatus $status): string => $status->value, self::LIVE_STATUSES))
+            ->whereNotNull('credentials');
     }
 
     public function cursorFor(string $entity): mixed

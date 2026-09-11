@@ -38,6 +38,7 @@ interface ConnectorRow {
     is_stub: boolean;
     status: string;
     status_label: string;
+    is_connected: boolean;
     account_label: string | null;
     last_synced_human: string | null;
     last_error: string | null;
@@ -152,7 +153,8 @@ export default function Connectors() {
                     ? Array.from({ length: 6 }).map((_, index) => <Card key={index} className="h-48 animate-pulse bg-muted/40" />)
                     : rows.map((connector) => {
                           const needsSetup = connector.status === 'needs_setup';
-                          const isConnected = connector.status === 'connected';
+                          // Syncing, or a failed last sync, is still a live connection — only the server knows the credentials hold.
+                          const isConnected = connector.is_connected;
 
                           return (
                               <Card key={connector.id} className="flex flex-col p-4">
@@ -169,7 +171,11 @@ export default function Connectors() {
                                       {connector.is_stub ? (
                                           <Badge variant="warn">phase 2</Badge>
                                       ) : isConnected ? (
-                                          <Badge variant="good">connected</Badge>
+                                          connector.status === 'error' ? (
+                                              <Badge variant="bad">sync error</Badge>
+                                          ) : (
+                                              <Badge variant="good">{connector.status === 'syncing' ? 'syncing' : 'connected'}</Badge>
+                                          )
                                       ) : needsSetup ? (
                                           <Badge variant="warn">needs setup</Badge>
                                       ) : connector.status === 'error' ? (
