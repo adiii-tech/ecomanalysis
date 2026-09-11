@@ -8,6 +8,7 @@ use App\Domain\Rollups\Actions\RebuildAdSpendRollup;
 use App\Domain\Rollups\Actions\RebuildCohorts;
 use App\Domain\Rollups\Actions\RebuildCustomerMetrics;
 use App\Domain\Rollups\Actions\RebuildDailyMetrics;
+use App\Domain\Rollups\Actions\RebuildFirstOrderFlags;
 use App\Domain\Rollups\Actions\RebuildPincodeRisk;
 use App\Domain\Rollups\Actions\RebuildSkuRollup;
 use App\Domain\Rollups\Actions\RebuildStateRollup;
@@ -44,6 +45,7 @@ class RebuildRollups implements ShouldBeUnique, ShouldQueue
 
     public function handle(
         TenantContext $context,
+        RebuildFirstOrderFlags $firstOrders,
         RebuildDailyMetrics $daily,
         RebuildSkuRollup $sku,
         RebuildStateRollup $state,
@@ -56,7 +58,7 @@ class RebuildRollups implements ShouldBeUnique, ShouldQueue
         $tenant = Tenant::query()->findOrFail($this->tenantId);
 
         $context->runAs($tenant, function () use (
-            $tenant, $daily, $sku, $state, $adSpend, $customers, $cohorts, $pincodes, $cache,
+            $tenant, $firstOrders, $daily, $sku, $state, $adSpend, $customers, $cohorts, $pincodes, $cache,
         ): void {
             $to = CarbonImmutable::parse($this->to ?? 'now', $tenant->timezone)->endOfDay();
             $from = $this->from !== null
@@ -64,6 +66,8 @@ class RebuildRollups implements ShouldBeUnique, ShouldQueue
                 : $to->subDays($this->full ? 730 : 90)->startOfDay();
 
             $counts = [
+                // First, because the daily rollup counts new versus returning buyers from it.
+                'first_orders' => $firstOrders->handle($tenant),
                 'daily' => $daily->handle($tenant, $from, $to),
                 'sku' => $sku->handle($tenant, $from, $to),
                 'state' => $state->handle($tenant, $from, $to),

@@ -40,7 +40,9 @@ class ProcessShopifyWebhook implements ShouldQueue
         $context->runAs($tenant, function () use ($event, $tenant, $upsert): void {
             try {
                 match ($event->topic) {
-                    'orders/create', 'orders/updated', 'orders/cancelled', 'refunds/create' => $upsert->handle($tenant, $event->payload),
+                    // A refunds/create body is the refund, not the order, so upserting it would invent an
+                    // order. Shopify follows it with orders/updated, which carries the refund on the real order.
+                    'orders/create', 'orders/updated', 'orders/cancelled' => $upsert->handle($tenant, $event->payload),
                     default => null,
                 };
 

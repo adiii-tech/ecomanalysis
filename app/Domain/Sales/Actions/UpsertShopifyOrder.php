@@ -15,8 +15,8 @@ use App\Models\OrderReturn;
 use App\Models\Sku;
 use App\Models\Tenant;
 use App\Models\Transaction;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -41,9 +41,9 @@ class UpsertShopifyOrder
                     'channel_id' => $channel->id,
                     'customer_id' => $customer?->id,
                     'order_number' => $payload['name'] ?? null,
-                    'placed_at' => Carbon::parse($payload['created_at']),
-                    'invoiced_at' => $payload['processed_at'] ?? $payload['created_at'],
-                    'cancelled_at' => $payload['cancelled_at'] ?? null,
+                    'placed_at' => $this->utc($payload['created_at']),
+                    'invoiced_at' => $this->utc($payload['processed_at'] ?? $payload['created_at']),
+                    'cancelled_at' => $this->utc($payload['cancelled_at'] ?? null),
                     'status' => $this->resolveStatus($payload),
                     'fulfillment_status' => $payload['fulfillment_status'] ?? 'unfulfilled',
                     'payment_mode' => $this->resolvePaymentMode($payload),
@@ -181,8 +181,8 @@ class UpsertShopifyOrder
                         'reason_code' => $refund['note'] ? str($refund['note'])->slug('_')->limit(60, '')->toString() : 'unspecified',
                         'reason_text' => $refund['note'] ?? null,
                         'qty' => (int) ($refundLine['quantity'] ?? 1),
-                        'initiated_at' => Carbon::parse($refund['created_at']),
-                        'received_at' => Carbon::parse($refund['processed_at'] ?? $refund['created_at']),
+                        'initiated_at' => $this->utc($refund['created_at']),
+                        'received_at' => $this->utc($refund['processed_at'] ?? $refund['created_at']),
                         'refund_amount' => $this->paise(Arr::get($refundLine, 'subtotal_set.shop_money.amount', $refundLine['subtotal'] ?? 0)),
                         'restock' => (bool) ($refundLine['restock_type'] ?? false),
                         'shipping_state' => $order->shipping_state,
@@ -211,7 +211,7 @@ class UpsertShopifyOrder
                     'fee' => $this->paise(Arr::get($txn, 'receipt.fee', 0)),
                     'status' => $txn['status'] ?? 'success',
                     'failure_reason' => $txn['error_code'] ?? null,
-                    'processed_at' => Carbon::parse($txn['processed_at'] ?? $txn['created_at']),
+                    'processed_at' => $this->utc($txn['processed_at'] ?? $txn['created_at']),
                 ],
             );
         }
@@ -257,6 +257,16 @@ class UpsertShopifyOrder
         return str_contains($gateways, 'cash on delivery') || str_contains($gateways, 'cod')
             ? PaymentMode::Cod
             : PaymentMode::Prepaid;
+    }
+
+    /**
+     * Shopify stamps times in the shop's own offset (+05:30). Eloquent stores a
+     * date's wall-clock digits without converting, so anything not moved to UTC
+     * first lands 5½ hours late — and evening orders count toward the next day.
+     */
+    private function utc(?string $timestamp): ?CarbonImmutable
+    {
+        return blank($timestamp) ? null : CarbonImmutable::parse($timestamp)->utc();
     }
 
     private function paise(mixed $amount): int

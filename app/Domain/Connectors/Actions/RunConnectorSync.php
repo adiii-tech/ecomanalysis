@@ -31,6 +31,7 @@ class RunConnectorSync
         string $trigger = 'scheduled',
         bool $backfill = false,
         ?CarbonImmutable $since = null,
+        ?CarbonImmutable $until = null,
     ): SyncReport {
         $model = Connector::query()
             ->where('tenant_id', $tenant->id)
@@ -68,6 +69,7 @@ class RunConnectorSync
                 entity: $entity,
                 cursor: $backfill ? null : $cursorBefore,
                 since: $since,
+                until: $until,
                 backfill: $backfill,
                 trigger: $trigger,
             ));
@@ -91,7 +93,11 @@ class RunConnectorSync
         ])->save();
 
         if ($report->ok()) {
-            $model->setCursorFor($entity, $report->cursorAfter);
+            // A bounded window says nothing about what changed after it, so it must not move the cursor.
+            if ($until === null) {
+                $model->setCursorFor($entity, $report->cursorAfter);
+            }
+
             $model->forceFill([
                 'status' => ConnectorStatus::Connected,
                 'last_synced_at' => now(),

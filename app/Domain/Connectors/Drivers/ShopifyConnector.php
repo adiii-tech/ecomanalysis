@@ -18,6 +18,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Sku;
 use App\Models\Transaction;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -312,7 +313,7 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
                     'status' => $product['status'] ?? 'active',
                     'image_url' => Arr::get($product, 'image.src'),
                     'tags' => $product['tags'] ? explode(', ', (string) $product['tags']) : [],
-                    'published_at' => $product['published_at'] ?? null,
+                    'published_at' => $this->utc($product['published_at'] ?? null),
                 ],
             );
 
@@ -373,6 +374,16 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
         return SyncReport::of('customers', $fetched, $fetched, $latest->toIso8601String());
     }
 
+    /**
+     * When the shop opened — the natural start for a full order history backfill.
+     */
+    public function shopCreatedAt(): ?CarbonImmutable
+    {
+        $createdAt = $this->clientFromModel()->get('shop.json')->json('shop.created_at');
+
+        return is_string($createdAt) ? CarbonImmutable::parse($createdAt) : null;
+    }
+
     protected function syncOrders(SyncContext $ctx): SyncReport
     {
         $since = $ctx->cursor !== null ? Carbon::parse((string) $ctx->cursor) : $ctx->sinceOrDefault(90);
@@ -381,11 +392,13 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
         $upserted = 0;
         $latest = $since;
 
-        $params = [
-            'updated_at_min' => $since->toIso8601String(),
-            'status' => 'any',
-            'limit' => $ctx->pageLimit,
-        ];
+        // A backfill window walks history by when orders were placed; the
+        // incremental sync follows whatever changed since the cursor.
+        $window = $ctx->until !== null
+            ? ['created_at_min' => $since->toIso8601String(), 'created_at_max' => $ctx->until->toIso8601String()]
+            : ['updated_at_min' => $since->toIso8601String()];
+
+        $params = [...$window, 'status' => 'any', 'limit' => $ctx->pageLimit];
 
         foreach ($this->paginate('orders.json', $params, 'orders') as $order) {
             $fetched++;
@@ -446,7 +459,7 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
                         'fee' => $this->paise(Arr::get($txn, 'receipt.fee', 0)),
                         'status' => $txn['status'] ?? 'success',
                         'failure_reason' => $txn['error_code'] ?? null,
-                        'processed_at' => Carbon::parse($txn['processed_at'] ?? $txn['created_at']),
+                        'processed_at' => $this->utc($txn['processed_at'] ?? $txn['created_at']),
                     ],
                 );
 
@@ -519,8 +532,8 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
                     'code' => $code['code'],
                     'type' => $rule['value_type'] === 'percentage' ? 'percentage' : 'fixed',
                     'value' => (int) round(abs((float) $rule['value']) * ($rule['value_type'] === 'percentage' ? 1 : 100)),
-                    'starts_at' => $rule['starts_at'] ?? null,
-                    'ends_at' => $rule['ends_at'] ?? null,
+                    'starts_at' => $this->utc($rule['starts_at'] ?? null),
+                    'ends_at' => $this->utc($rule['ends_at'] ?? null),
                 ];
             }
         }
@@ -545,11 +558,11 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
                 'tenant_id' => $ctx->tenant->id,
                 'source' => 'shopify',
                 'external_id' => (string) $checkout['id'],
-                'abandoned_at' => Carbon::parse($checkout['created_at']),
+                'abandoned_at' => $this->utc($checkout['created_at']),
                 'cart_value' => $this->paise($checkout['total_price'] ?? 0),
                 'items_count' => count($checkout['line_items'] ?? []),
                 'recovered' => ! empty($checkout['completed_at']),
-                'recovered_at' => $checkout['completed_at'] ?? null,
+                'recovered_at' => $this->utc($checkout['completed_at'] ?? null),
                 'recovery_url' => $checkout['abandoned_checkout_url'] ?? null,
             ];
         }
@@ -621,6 +634,12 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
             (string) $this->credential('shop_domain'),
             (string) $this->credential('access_token'),
         );
+    }
+
+    /** Shopify times carry the shop's offset; stored as they come they would read 5½ hours late. */
+    private function utc(?string $timestamp): ?CarbonImmutable
+    {
+        return blank($timestamp) ? null : CarbonImmutable::parse($timestamp)->utc();
     }
 
     private function paise(mixed $amount): int

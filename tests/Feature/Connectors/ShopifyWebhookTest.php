@@ -105,3 +105,38 @@ it('turns a queued webhook into a resolved order', function (): void {
 
     expect(WebhookEvent::query()->withoutGlobalScopes()->first()->status)->toBe('processed');
 });
+
+it('stores Shopify times in UTC so an order counts toward the day it was placed', function (): void {
+    $this->withHeaders([
+        'X-Shopify-Topic' => 'orders/create',
+        'X-Shopify-Shop-Domain' => 'kaira.myshopify.com',
+        'X-Shopify-Hmac-Sha256' => signed($this->payload, 'hush'),
+    ])->postJson('/webhooks/shopify', $this->payload)->assertOk();
+
+    $order = Order::query()->where('external_id', '2002')->firstOrFail();
+
+    // 10:00 in India is 04:30 UTC. Stored as 10:00 it would read as 15:30 IST, and any order
+    // after 18:30 would roll into the next day's numbers.
+    expect($order->getRawOriginal('placed_at'))->toBe('2026-08-21 04:30:00')
+        ->and($order->placed_at->setTimezone('Asia/Kolkata')->format('Y-m-d H:i'))->toBe('2026-08-21 10:00');
+});
+
+it('does not mistake a refund webhook for a new order', function (): void {
+    $refund = [
+        'id' => 9901,
+        'order_id' => 2002,
+        'created_at' => '2026-08-22T11:00:00+05:30',
+        'note' => 'Arrived damaged',
+        'refund_line_items' => [],
+        'transactions' => [],
+    ];
+
+    $this->withHeaders([
+        'X-Shopify-Topic' => 'refunds/create',
+        'X-Shopify-Shop-Domain' => 'kaira.myshopify.com',
+        'X-Shopify-Hmac-Sha256' => signed($refund, 'hush'),
+    ])->postJson('/webhooks/shopify', $refund)->assertOk();
+
+    expect(Order::query()->count())->toBe(0)
+        ->and(WebhookEvent::query()->withoutGlobalScopes()->first()->status)->toBe('processed');
+});

@@ -33,6 +33,7 @@ class SyncConnectorEntity implements ShouldQueue
         public readonly bool $backfill = false,
         public readonly ?string $since = null,
         public readonly bool $rebuildRollups = true,
+        public readonly ?string $until = null,
     ) {
         $this->onQueue('sync-'.$connectorId);
     }
@@ -40,8 +41,11 @@ class SyncConnectorEntity implements ShouldQueue
     /** @return list<object> */
     public function middleware(): array
     {
+        // A history window must neither block nor wait on the live sync of the same entity.
+        $key = "sync:{$this->tenantId}:{$this->connectorId}:{$this->entity}".($this->until !== null ? ':backfill' : '');
+
         return [
-            (new WithoutOverlapping("sync:{$this->tenantId}:{$this->connectorId}:{$this->entity}"))
+            (new WithoutOverlapping($key))
                 ->releaseAfter(60)
                 ->expireAfter(1800),
             new RateLimited('connector-sync'),
@@ -60,6 +64,7 @@ class SyncConnectorEntity implements ShouldQueue
                 $this->trigger,
                 $this->backfill,
                 $this->since !== null ? CarbonImmutable::parse($this->since) : null,
+                $this->until !== null ? CarbonImmutable::parse($this->until) : null,
             );
 
             if ($report->ok() && $report->upserted > 0 && $this->rebuildRollups) {

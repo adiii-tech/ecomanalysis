@@ -76,6 +76,8 @@ class ScheduleConnectorSyncs extends Command
             ->where('tenant_id', $tenantId)
             ->where('connector_id', $connectorId)
             ->where('entity', $entity)
+            // A history backfill says nothing about how fresh the live data is.
+            ->where('trigger', '!=', 'backfill')
             ->whereNotNull('started_at')
             ->latest('started_at')
             ->first();
