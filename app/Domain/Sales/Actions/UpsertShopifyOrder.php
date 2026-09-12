@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Sales\Actions;
 
+use App\Domain\Sales\Support\PaymentModeResolver;
 use App\Enums\OrderStatus;
-use App\Enums\PaymentMode;
 use App\Enums\ReturnType;
 use App\Models\Channel;
 use App\Models\Customer;
@@ -46,7 +46,8 @@ class UpsertShopifyOrder
                     'cancelled_at' => $this->utc($payload['cancelled_at'] ?? null),
                     'status' => $this->resolveStatus($payload),
                     'fulfillment_status' => $payload['fulfillment_status'] ?? 'unfulfilled',
-                    'payment_mode' => $this->resolvePaymentMode($payload),
+                    'payment_mode' => PaymentModeResolver::fromGateways($payload['payment_gateway_names'] ?? []),
+                    'payment_gateway' => PaymentModeResolver::label($payload['payment_gateway_names'] ?? []),
                     'shipping_state' => $shipping['province'] ?? null,
                     'shipping_city' => $shipping['city'] ?? null,
                     'shipping_pincode' => $shipping['zip'] ?? null,
@@ -247,16 +248,6 @@ class UpsertShopifyOrder
             $fulfillment === 'partial' => OrderStatus::Shipped,
             default => OrderStatus::Confirmed,
         };
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function resolvePaymentMode(array $payload): PaymentMode
-    {
-        $gateways = strtolower(implode(' ', $payload['payment_gateway_names'] ?? []));
-
-        return str_contains($gateways, 'cash on delivery') || str_contains($gateways, 'cod')
-            ? PaymentMode::Cod
-            : PaymentMode::Prepaid;
     }
 
     /**

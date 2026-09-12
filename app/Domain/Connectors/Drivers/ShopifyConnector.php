@@ -384,6 +384,26 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
         return is_string($createdAt) ? CarbonImmutable::parse($createdAt) : null;
     }
 
+    /**
+     * Order ids with the gateways that paid for them, asked for with a trimmed
+     * field list so a whole-store pass costs minutes rather than a full re-sync.
+     *
+     * @return iterable<int, array{id: string, gateways: list<string>}>
+     */
+    public function paymentGateways(?CarbonImmutable $since = null): iterable
+    {
+        $params = [
+            'status' => 'any',
+            'limit' => 250,
+            'fields' => 'id,payment_gateway_names',
+            ...($since !== null ? ['created_at_min' => $since->toIso8601String()] : []),
+        ];
+
+        foreach ($this->paginate('orders.json', $params, 'orders') as $order) {
+            yield ['id' => (string) $order['id'], 'gateways' => $order['payment_gateway_names'] ?? []];
+        }
+    }
+
     protected function syncOrders(SyncContext $ctx): SyncReport
     {
         $since = $ctx->cursor !== null ? Carbon::parse((string) $ctx->cursor) : $ctx->sinceOrDefault(90);
