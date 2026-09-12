@@ -64,47 +64,45 @@ export function KpiCard({
                 )}
             </div>
 
-            {/*
-              * The sparkline sits behind the number rather than beside it. Six
-              * KPI cards across a row leaves ~180px each, which is not enough
-              * for a lakh-scale rupee figure and a chart side by side — the
-              * number is what matters, so it gets the full width.
-              */}
-            <div className="relative mt-2">
-                {metric.sparkline.length > 1 && (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 opacity-45">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={metric.sparkline} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
-                                <defs>
-                                    <linearGradient id={`spark-${metric.key}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35} />
-                                        <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <Area
-                                    type="monotone"
-                                    dataKey="value"
-                                    stroke={strokeColor}
-                                    strokeWidth={1.5}
-                                    fill={`url(#spark-${metric.key})`}
-                                    isAnimationActive={false}
-                                    dot={false}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                )}
-
-                <div className="relative">
-                    <p className="text-xl font-semibold leading-tight tracking-tight tnum">
-                        {formatMetric(metric.value, metric.format)}
-                    </p>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                        <DeltaChip deltaPct={metric.delta_pct} isGood={metric.is_good} direction={metric.direction} />
-                        <span className="text-[10px] text-muted-foreground">vs prev</span>
-                    </div>
+            <div className="mt-2">
+                <p className="text-xl font-semibold leading-tight tracking-tight tnum">
+                    {formatMetric(metric.value, metric.format)}
+                </p>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                    <DeltaChip deltaPct={metric.delta_pct} isGood={metric.is_good} direction={metric.direction} />
+                    <span className="text-[10px] text-muted-foreground">vs prev</span>
                 </div>
             </div>
+
+            {/*
+              * The sparkline gets a band of its own under the number. Six KPI
+              * cards across a row leaves ~180px each, and drawn behind the value
+              * the line cut straight through a lakh-scale rupee figure — the
+              * number is the point of the card, so nothing crosses it.
+              */}
+            {metric.sparkline.length > 1 && (
+                <div className="pointer-events-none mt-2 h-8">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={metric.sparkline} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+                            <defs>
+                                <linearGradient id={`spark-${metric.key}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35} />
+                                    <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <Area
+                                type="monotone"
+                                dataKey="value"
+                                stroke={strokeColor}
+                                strokeWidth={1.5}
+                                fill={`url(#spark-${metric.key})`}
+                                isAnimationActive={false}
+                                dot={false}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
 
             {metric.caveat && <CaveatNote caveat={metric.caveat} className="mt-2" />}
         </Card>

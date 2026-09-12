@@ -115,7 +115,7 @@ function Connectors() {
 				className: "grid gap-3 sm:grid-cols-2 xl:grid-cols-3",
 				children: connectors.loading ? Array.from({ length: 6 }).map((_, index) => /* @__PURE__ */ jsx(Card, { className: "h-48 animate-pulse bg-muted/40" }, index)) : rows.map((connector) => {
 					const needsSetup = connector.status === "needs_setup";
-					const isConnected = connector.status === "connected";
+					const isConnected = connector.is_connected;
 					return /* @__PURE__ */ jsxs(Card, {
 						className: "flex flex-col p-4",
 						children: [
@@ -136,9 +136,12 @@ function Connectors() {
 								}), connector.is_stub ? /* @__PURE__ */ jsx(Badge, {
 									variant: "warn",
 									children: "phase 2"
-								}) : isConnected ? /* @__PURE__ */ jsx(Badge, {
+								}) : isConnected ? connector.status === "error" ? /* @__PURE__ */ jsx(Badge, {
+									variant: "bad",
+									children: "sync error"
+								}) : /* @__PURE__ */ jsx(Badge, {
 									variant: "good",
-									children: "connected"
+									children: connector.status === "syncing" ? "syncing" : "connected"
 								}) : needsSetup ? /* @__PURE__ */ jsx(Badge, {
 									variant: "warn",
 									children: "needs setup"

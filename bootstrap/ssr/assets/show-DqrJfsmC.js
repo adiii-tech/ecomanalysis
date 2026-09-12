@@ -9,7 +9,7 @@ import { t as CaveatNote } from "./caveat-note-Dr_rbZyQ.js";
 import { n as SkeletonChart } from "./skeleton-DUakt-29.js";
 import { a as SheetTitle, i as SheetHeader, n as SheetContent, r as SheetDescription, t as Sheet } from "./sheet-BNOmNaqW.js";
 import { t as useWidget } from "./use-widget-CMYArvtl.js";
-import { t as KpiCard } from "./kpi-card-CF3GcgfJ.js";
+import { t as KpiCard } from "./kpi-card-ByDkhHxD.js";
 import { t as DrilldownDrawer } from "./drilldown-drawer-B3VTT9x2.js";
 import { t as ReportSectionView } from "./report-section-CBf1J4XS.js";
 import { Head } from "@inertiajs/react";

@@ -9,7 +9,7 @@ import { n as TabsList, r as TabsTrigger, t as Tabs } from "./tabs-CadgG3dj.js";
 import { t as BarList } from "./bar-list-CSlL2QKm.js";
 import { a as GRID_PROPS, c as axisNumber, i as ChartTooltip, n as CHART_COLORS, o as axisCurrency, r as ChartLegend, s as axisDate, t as AXIS_PROPS } from "./chart-primitives-ChBp4vNI.js";
 import { t as useWidget } from "./use-widget-CMYArvtl.js";
-import { n as KpiStrip } from "./kpi-card-CF3GcgfJ.js";
+import { n as KpiStrip } from "./kpi-card-ByDkhHxD.js";
 import { Head } from "@inertiajs/react";
 import { jsx, jsxs } from "react/jsx-runtime";
 import { useState } from "react";

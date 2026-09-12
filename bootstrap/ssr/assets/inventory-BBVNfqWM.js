@@ -93,9 +93,18 @@ function InventoryIndex() {
 			align: "right",
 			sortable: true,
 			value: (row) => row.on_hand,
-			render: (row) => row.tracks_inventory ? /* @__PURE__ */ jsx("span", {
-				className: cn("tnum font-medium", row.on_hand <= 0 && "text-bad"),
-				children: formatNumber(row.on_hand)
+			render: (row) => row.tracks_inventory ? /* @__PURE__ */ jsxs("span", {
+				className: "inline-flex items-center gap-1.5",
+				children: [row.stock_source !== "manual" && /* @__PURE__ */ jsx("span", {
+					title: `Reported by ${row.stock_source}. Adjusting it here starts stock managed in this app.`,
+					children: /* @__PURE__ */ jsx(Badge, {
+						variant: "muted",
+						children: row.stock_source
+					})
+				}), /* @__PURE__ */ jsx("span", {
+					className: cn("tnum font-medium", row.on_hand <= 0 && "text-bad"),
+					children: formatNumber(row.on_hand)
+				})]
 			}) : /* @__PURE__ */ jsx(Badge, {
 				variant: "muted",
 				children: "not tracked"

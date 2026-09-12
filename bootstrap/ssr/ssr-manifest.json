@@ -37,10 +37,10 @@
     "/build/assets/funnel-CayeUjz3.js"
   ],
   "resources/js/components/app/kpi-card.tsx": [
-    "/build/assets/kpi-card-CF3GcgfJ.js"
+    "/build/assets/kpi-card-ByDkhHxD.js"
   ],
   "resources/js/components/app/orders-drilldown.tsx": [
-    "/build/assets/show-CnMpKUQM.js"
+    "/build/assets/show-DqrJfsmC.js"
   ],
   "resources/js/components/app/permission-guard.tsx": [
     "/build/assets/permission-guard-B2YFsnLX.js"
@@ -67,10 +67,10 @@
     "/build/assets/waterfall-chart-CcaRf_l7.js"
   ],
   "resources/js/components/dashboard/health-flags.tsx": [
-    "/build/assets/dashboard-Db-NCJhM.js"
+    "/build/assets/dashboard-Dr3WiMMm.js"
   ],
   "resources/js/components/dashboard/sales-journey.tsx": [
-    "/build/assets/dashboard-Db-NCJhM.js"
+    "/build/assets/dashboard-Dr3WiMMm.js"
   ],
   "resources/js/components/dashboard/sales-summary-table.tsx": [
     "/build/assets/sales-summary-table-CJxS4gRN.js"
@@ -184,7 +184,7 @@
     "/build/assets/catalog-DK6UYZpE.js"
   ],
   "resources/js/pages/connectors/index.tsx": [
-    "/build/assets/connectors-CxM9lANb.js"
+    "/build/assets/connectors-uBW6qJ8S.js"
   ],
   "resources/js/pages/customers/explorer.tsx": [
     "/build/assets/explorer-BdwgowSl.js"
@@ -196,28 +196,28 @@
     "/build/assets/show-w0wAh7jT.js"
   ],
   "resources/js/pages/dashboard/index.tsx": [
-    "/build/assets/dashboard-Db-NCJhM.js"
+    "/build/assets/dashboard-Dr3WiMMm.js"
   ],
   "resources/js/pages/finance/index.tsx": [
-    "/build/assets/finance-nlHZLeL7.js"
+    "/build/assets/finance-CDOZr_m7.js"
   ],
   "resources/js/pages/instagram/index.tsx": [
-    "/build/assets/instagram-D3sB71sX.js"
+    "/build/assets/instagram-D8fz-NjX.js"
   ],
   "resources/js/pages/inventory/counts.tsx": [
     "/build/assets/counts-6Dmsm9tr.js"
   ],
   "resources/js/pages/inventory/index.tsx": [
-    "/build/assets/inventory-DJeb_kSX.js"
+    "/build/assets/inventory-BBVNfqWM.js"
   ],
   "resources/js/pages/inventory/purchasing.tsx": [
     "/build/assets/purchasing-DsiL93tQ.js"
   ],
   "resources/js/pages/marketing/index.tsx": [
-    "/build/assets/marketing-5axRixjn.js"
+    "/build/assets/marketing-ApKbNfz6.js"
   ],
   "resources/js/pages/marketplace/index.tsx": [
-    "/build/assets/marketplace-BljcrpNl.js"
+    "/build/assets/marketplace-Bc5H3eXx.js"
   ],
   "resources/js/pages/onboarding/index.tsx": [
     "/build/assets/onboarding-QAS472t-.js"
@@ -229,10 +229,10 @@
     "/build/assets/reports-aFxko7-s.js"
   ],
   "resources/js/pages/reports/shared.tsx": [
-    "/build/assets/shared-Bd9nwEXI.js"
+    "/build/assets/shared-Cnr4sS4w.js"
   ],
   "resources/js/pages/reports/show.tsx": [
-    "/build/assets/show-CnMpKUQM.js"
+    "/build/assets/show-DqrJfsmC.js"
   ],
   "resources/js/pages/settings/profile.tsx": [
     "/build/assets/profile-DL9rFpru.js"

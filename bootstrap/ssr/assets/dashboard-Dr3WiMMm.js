@@ -11,7 +11,7 @@ import { t as DataTable } from "./data-table-CQdRzZJF.js";
 import { n as TabsList, r as TabsTrigger, t as Tabs } from "./tabs-CadgG3dj.js";
 import { a as GRID_PROPS, c as axisNumber, i as ChartTooltip, l as axisPercent, n as CHART_COLORS, o as axisCurrency, r as ChartLegend, s as axisDate, t as AXIS_PROPS } from "./chart-primitives-ChBp4vNI.js";
 import { t as useWidget } from "./use-widget-CMYArvtl.js";
-import { n as KpiStrip } from "./kpi-card-CF3GcgfJ.js";
+import { n as KpiStrip } from "./kpi-card-ByDkhHxD.js";
 import { t as ReturnsBasisToggle } from "./returns-basis-toggle-Hux1TInn.js";
 import { t as DrilldownDrawer } from "./drilldown-drawer-B3VTT9x2.js";
 import { t as SalesSummaryTable } from "./sales-summary-table-CJxS4gRN.js";

@@ -45,63 +45,61 @@ function KpiCard({ metric, onDrilldown, className }) {
 				})]
 			}),
 			/* @__PURE__ */ jsxs("div", {
-				className: "relative mt-2",
-				children: [metric.sparkline.length > 1 && /* @__PURE__ */ jsx("div", {
-					className: "pointer-events-none absolute inset-x-0 bottom-0 h-12 opacity-45",
-					children: /* @__PURE__ */ jsx(ResponsiveContainer, {
-						width: "100%",
-						height: "100%",
-						children: /* @__PURE__ */ jsxs(AreaChart, {
-							data: metric.sparkline,
-							margin: {
-								top: 2,
-								right: 0,
-								bottom: 0,
-								left: 0
-							},
-							children: [/* @__PURE__ */ jsx("defs", { children: /* @__PURE__ */ jsxs("linearGradient", {
-								id: `spark-${metric.key}`,
-								x1: "0",
-								y1: "0",
-								x2: "0",
-								y2: "1",
-								children: [/* @__PURE__ */ jsx("stop", {
-									offset: "0%",
-									stopColor: strokeColor,
-									stopOpacity: .35
-								}), /* @__PURE__ */ jsx("stop", {
-									offset: "100%",
-									stopColor: strokeColor,
-									stopOpacity: 0
-								})]
-							}) }), /* @__PURE__ */ jsx(Area, {
-								type: "monotone",
-								dataKey: "value",
-								stroke: strokeColor,
-								strokeWidth: 1.5,
-								fill: `url(#spark-${metric.key})`,
-								isAnimationActive: false,
-								dot: false
-							})]
-						})
-					})
+				className: "mt-2",
+				children: [/* @__PURE__ */ jsx("p", {
+					className: "text-xl font-semibold leading-tight tracking-tight tnum",
+					children: formatMetric(metric.value, metric.format)
 				}), /* @__PURE__ */ jsxs("div", {
-					className: "relative",
-					children: [/* @__PURE__ */ jsx("p", {
-						className: "text-xl font-semibold leading-tight tracking-tight tnum",
-						children: formatMetric(metric.value, metric.format)
-					}), /* @__PURE__ */ jsxs("div", {
-						className: "mt-1.5 flex items-center gap-1.5",
-						children: [/* @__PURE__ */ jsx(DeltaChip, {
-							deltaPct: metric.delta_pct,
-							isGood: metric.is_good,
-							direction: metric.direction
-						}), /* @__PURE__ */ jsx("span", {
-							className: "text-[10px] text-muted-foreground",
-							children: "vs prev"
-						})]
+					className: "mt-1.5 flex items-center gap-1.5",
+					children: [/* @__PURE__ */ jsx(DeltaChip, {
+						deltaPct: metric.delta_pct,
+						isGood: metric.is_good,
+						direction: metric.direction
+					}), /* @__PURE__ */ jsx("span", {
+						className: "text-[10px] text-muted-foreground",
+						children: "vs prev"
 					})]
 				})]
+			}),
+			metric.sparkline.length > 1 && /* @__PURE__ */ jsx("div", {
+				className: "pointer-events-none mt-2 h-8",
+				children: /* @__PURE__ */ jsx(ResponsiveContainer, {
+					width: "100%",
+					height: "100%",
+					children: /* @__PURE__ */ jsxs(AreaChart, {
+						data: metric.sparkline,
+						margin: {
+							top: 2,
+							right: 0,
+							bottom: 0,
+							left: 0
+						},
+						children: [/* @__PURE__ */ jsx("defs", { children: /* @__PURE__ */ jsxs("linearGradient", {
+							id: `spark-${metric.key}`,
+							x1: "0",
+							y1: "0",
+							x2: "0",
+							y2: "1",
+							children: [/* @__PURE__ */ jsx("stop", {
+								offset: "0%",
+								stopColor: strokeColor,
+								stopOpacity: .35
+							}), /* @__PURE__ */ jsx("stop", {
+								offset: "100%",
+								stopColor: strokeColor,
+								stopOpacity: 0
+							})]
+						}) }), /* @__PURE__ */ jsx(Area, {
+							type: "monotone",
+							dataKey: "value",
+							stroke: strokeColor,
+							strokeWidth: 1.5,
+							fill: `url(#spark-${metric.key})`,
+							isAnimationActive: false,
+							dot: false
+						})]
+					})
+				})
 			}),
 			metric.caveat && /* @__PURE__ */ jsx(CaveatNote, {
 				caveat: metric.caveat,

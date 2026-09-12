@@ -2,7 +2,7 @@ import { t as EmptyState } from "./empty-state-DjIQjBC7.js";
 import { u as formatLongDate } from "./card-DJDNvUnK.js";
 import { i as VerdictNote } from "./chart-card-CZPTjzl-.js";
 import { t as CaveatNote } from "./caveat-note-Dr_rbZyQ.js";
-import { t as KpiCard } from "./kpi-card-CF3GcgfJ.js";
+import { t as KpiCard } from "./kpi-card-ByDkhHxD.js";
 import { t as ReportSectionView } from "./report-section-CBf1J4XS.js";
 import { Head } from "@inertiajs/react";
 import { jsx, jsxs } from "react/jsx-runtime";
