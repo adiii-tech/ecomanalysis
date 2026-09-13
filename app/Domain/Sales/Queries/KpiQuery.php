@@ -56,7 +56,7 @@ class KpiQuery
                 $this->metrics->netAov($now), $this->metrics->netAov($prev), $series,
                 fn (array $row): float => $this->metrics->netAov($row),
                 'currency', true,
-                'Net sales divided by the orders that stuck: cancelled, returned and RTO orders come off both sides.',
+                'Net sales — after cancellations, returns and RTO — divided by the orders that were actually billed.',
                 'orders')->toArray(),
 
             $this->metrics->derived('gross_aov', 'Gross AOV',

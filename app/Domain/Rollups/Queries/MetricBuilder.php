@@ -123,17 +123,18 @@ class MetricBuilder
     }
 
     /**
-     * Orders that were billed and stayed sold. A cancelled order never invoices,
-     * and a returned or RTO order is revenue that came back — counting them
-     * would understate what an order the customer kept is actually worth.
+     * Orders that were actually billed: a cancelled order never invoices.
+     *
+     * Returned and RTO orders stay in the count on purpose. Their money is
+     * already off net sales, so removing them from the divisor as well charged
+     * the same loss twice — and on a month where the returned orders were
+     * ordinary-sized, it pushed net AOV above gross AOV, which cannot be true.
      *
      * @param  array<string, mixed>  $totals
      */
     public function netOrders(array $totals): int
     {
-        return max(0, (int) ($totals['invoiced_orders'] ?? 0)
-            - (int) ($totals['returned_orders'] ?? 0)
-            - (int) ($totals['rto_orders'] ?? 0));
+        return max(0, (int) ($totals['invoiced_orders'] ?? 0));
     }
 
     /** @param array<string, mixed> $totals */

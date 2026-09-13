@@ -45,9 +45,11 @@ beforeEach(function (): void {
 it('splits AOV into what was placed and what stayed sold', function (): void {
     $cards = ($this->cards)();
 
-    // ₹9,000 after discounts over 10 orders placed, and ₹4,800 over the 6 that stayed sold.
+    // ₹9,000 after discounts over the 10 orders placed, and ₹4,800 over the 8 that were billed.
     expect((int) $cards['gross_aov']['value'])->toBe(Money::fromRupees(900))
-        ->and((int) $cards['net_aov']['value'])->toBe(Money::fromRupees(800));
+        ->and((int) $cards['net_aov']['value'])->toBe(Money::fromRupees(600))
+        // Returns take money off the top, never orders off the bottom, so net stays under gross.
+        ->and($cards['net_aov']['value'])->toBeLessThanOrEqual($cards['gross_aov']['value']);
 });
 
 it('keeps both AOVs on the strip with their own comparison and sparkline', function (): void {
