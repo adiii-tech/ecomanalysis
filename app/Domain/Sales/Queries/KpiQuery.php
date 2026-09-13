@@ -63,7 +63,7 @@ class KpiQuery
                 $this->metrics->grossAov($now), $this->metrics->grossAov($prev), $series,
                 fn (array $row): float => $this->metrics->grossAov($row),
                 'currency', true,
-                'Gross sales divided by every order placed, before discounts, cancellations and returns.',
+                'Sales after discounts, divided by every order placed. Cancellations and returns are still counted here.',
                 'orders')->toArray(),
         ];
     }

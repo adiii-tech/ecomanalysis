@@ -17,7 +17,8 @@ beforeEach(function (): void {
         'tenant_id' => $this->tenant->id, 'name' => 'Shopify', 'code' => 'shopify', 'type' => ChannelType::D2c,
     ]);
 
-    // Ten orders placed for ₹10,000: two cancelled, one returned, one RTO — six stayed sold for ₹4,800.
+    // Ten orders placed worth ₹10,000 with ₹1,000 off: two cancelled, one returned,
+    // one RTO — six stayed sold for ₹4,800.
     DB::table('daily_metrics_rollup')->insert([
         'tenant_id' => $this->tenant->id,
         'date' => CarbonImmutable::now($this->tenant->timezone)->subDays(2)->toDateString(),
@@ -29,6 +30,7 @@ beforeEach(function (): void {
         'returned_orders' => 1,
         'rto_orders' => 1,
         'gross_sales' => Money::fromRupees(10000),
+        'discounts' => Money::fromRupees(1000),
         'net_sales' => Money::fromRupees(4800),
         'computed_at' => now(),
         'created_at' => now(),
@@ -43,7 +45,8 @@ beforeEach(function (): void {
 it('splits AOV into what was placed and what stayed sold', function (): void {
     $cards = ($this->cards)();
 
-    expect((int) $cards['gross_aov']['value'])->toBe(Money::fromRupees(1000))
+    // ₹9,000 after discounts over 10 orders placed, and ₹4,800 over the 6 that stayed sold.
+    expect((int) $cards['gross_aov']['value'])->toBe(Money::fromRupees(900))
         ->and((int) $cards['net_aov']['value'])->toBe(Money::fromRupees(800));
 });
 

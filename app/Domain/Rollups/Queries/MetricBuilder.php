@@ -142,10 +142,18 @@ class MetricBuilder
         return round(Num::safeDivide((int) ($totals['net_sales'] ?? 0), $this->netOrders($totals)));
     }
 
-    /** @param array<string, mixed> $totals */
+    /**
+     * What an average order was worth once discounts came off, across every
+     * order placed. Cancellations and returns stay in — that is the whole
+     * difference between this and net AOV.
+     *
+     * @param  array<string, mixed>  $totals
+     */
     public function grossAov(array $totals): float
     {
-        return round(Num::safeDivide((int) ($totals['gross_sales'] ?? 0), (int) ($totals['orders_count'] ?? 0)));
+        $afterDiscount = (int) ($totals['gross_sales'] ?? 0) - (int) ($totals['discounts'] ?? 0);
+
+        return round(Num::safeDivide(max(0, $afterDiscount), (int) ($totals['orders_count'] ?? 0)));
     }
 
     /** @param array<string, int> $totals */
