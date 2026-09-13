@@ -27,10 +27,10 @@ beforeEach(function (): void {
         'created_at' => now(), 'updated_at' => now(),
     ]);
 
-    $this->sold = fn (Sku $sku, int $daysAgo, int $units, int $revenue = 0): bool => DB::table('sku_daily_rollup')->insert([
+    $this->sold = fn (Sku $sku, int $daysAgo, int $units, int $revenue = 0, int $returned = 0): bool => DB::table('sku_daily_rollup')->insert([
         'tenant_id' => $this->tenant->id, 'sku_id' => $sku->id, 'channel_id' => null,
         'date' => $this->today->subDays($daysAgo)->toDateString(),
-        'units_sold' => $units, 'orders_count' => $units, 'returned_units' => 0,
+        'units_sold' => $units, 'orders_count' => $units, 'returned_units' => $returned,
         'gross_sales' => $revenue, 'net_sales' => $revenue,
         'computed_at' => now(), 'created_at' => now(), 'updated_at' => now(),
     ]);
@@ -131,6 +131,20 @@ it('rates a stocked-out seller on the days it was actually on the shelf', functi
         // 30 units over the 30 days it was on the shelf, not over the full 90.
         ->and((float) $row['velocity'])->toBe(1.0)
         ->and($row['suggested_qty'])->toBe(60);
+});
+
+it('survives a day where more came back than went out', function (): void {
+    $churn = ($this->sku)('CHURN-1', 100);
+    ($this->stock)($churn, 4);
+    // Yesterday's returns outnumber yesterday's sales; the columns are unsigned,
+    // so netting them without a cast used to blow up the whole page.
+    ($this->sold)($churn, 30, 10, Money::fromRupees(4000));
+    ($this->sold)($churn, 1, 1, Money::fromRupees(400), 3);
+
+    $row = ($this->rows)()['CHURN-1'];
+
+    expect($row['units_window'])->toBe(8)
+        ->and($row['returns_window'])->toBe(3);
 });
 
 it('will not show the restock desk to a role without the permission', function (): void {

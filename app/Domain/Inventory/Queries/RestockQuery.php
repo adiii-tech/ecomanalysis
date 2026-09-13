@@ -94,7 +94,11 @@ class RestockQuery
 
         // Returns are netted off the same day they were booked against, which is
         // how the rollup stores them; counting them as sales only ever inflates.
-        $units = $s['netReturns'] ? '(units_sold - returned_units)' : 'units_sold';
+        // Both columns are unsigned, so the subtraction has to be cast — a day
+        // with more returns than sales would otherwise overflow rather than net.
+        $units = $s['netReturns']
+            ? '(CAST(units_sold AS SIGNED) - CAST(returned_units AS SIGNED))'
+            : 'units_sold';
 
         return DB::table('sku_daily_rollup')
             ->where('tenant_id', Tenant::id())
