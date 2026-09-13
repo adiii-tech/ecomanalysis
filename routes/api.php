@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\OperationsController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PurchasingController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\RestockController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SavedViewController;
 use App\Http\Controllers\Api\SegmentController;
@@ -231,6 +232,13 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
         Route::post('{connector}/select', [ConnectorController::class, 'select'])->middleware('permission.widget:connectors.credentials.manage')->name('select');
         Route::post('{connector}/sync', [ConnectorController::class, 'sync'])->middleware(['permission.widget:connectors.sync_health.manage', 'throttle:manual-sync'])->name('sync');
     });
+
+    /*
+    | The restock desk: one read that answers "where is the money stuck" and
+    | "what do I buy next", recomputed from the settings on the request.
+    */
+    Route::get('restock', [RestockController::class, 'index'])
+        ->middleware('permission.widget:catalog.restock.view')->name('api.restock');
 
     /*
     | Inventory a brand actually operates: stock levels, adjustments, the ledger

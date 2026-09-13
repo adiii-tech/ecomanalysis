@@ -210,6 +210,7 @@ final class PermissionRegistry
                     'inventory' => 'Inventory levels',
                     'stockouts' => 'Stockouts',
                     'reorder' => 'Reorder suggestions',
+                    'restock' => 'Restock desk',
                     'margin' => 'SKU margin',
                     'cost_editor' => 'COGS editor',
                     'stock' => 'Stock levels & adjustments',

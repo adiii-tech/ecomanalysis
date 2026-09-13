@@ -48,6 +48,7 @@ Route::middleware(['auth'])->group(function (): void {
         'marketplace' => ['marketplace/index', 'marketplace.kpi_strip.view'],
         'operations' => ['operations/index', 'operations.kpi_strip.view'],
         'catalog' => ['catalog/index', 'catalog.kpi_strip.view'],
+        'restock' => ['restock/index', 'catalog.restock.view'],
         'customers' => ['customers/index', 'customer_intelligence.kpi_strip.view'],
         'reports' => ['reports/index', 'reports.library.view'],
         'ask-ai' => ['ai/index', 'ai.chat.view'],

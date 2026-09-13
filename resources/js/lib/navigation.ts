@@ -7,6 +7,7 @@ import {
     FileBarChart,
     LayoutDashboard,
     Megaphone,
+    PackagePlus,
     PlugZap,
     Settings,
     Sparkles,
@@ -53,6 +54,7 @@ export const NAVIGATION: NavSection[] = [
             { label: 'Operations', href: '/operations', icon: Truck, permission: 'operations.kpi_strip.view' },
             { label: 'Catalog', href: '/catalog', icon: Boxes, permission: 'catalog.kpi_strip.view' },
             { label: 'Inventory', href: '/inventory', icon: Warehouse, permission: 'catalog.stock.view' },
+            { label: 'Restock', href: '/restock', icon: PackagePlus, permission: 'catalog.restock.view' },
         ],
     },
     {
