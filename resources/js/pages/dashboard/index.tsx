@@ -187,7 +187,7 @@ export default function Dashboard() {
             <Head title="Command Centre" />
 
             <PermissionGuard permission="dashboard.kpi_strip.view">
-                <KpiStrip metrics={kpis.data} loading={kpis.loading} columns={6} />
+                <KpiStrip metrics={kpis.data} loading={kpis.loading} columns={7} />
             </PermissionGuard>
 
             <PermissionGuard permission="dashboard.health_flags.view">

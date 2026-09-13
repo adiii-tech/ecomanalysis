@@ -122,6 +122,32 @@ class MetricBuilder
         return round(Num::safeDivide($totals['net_sales'] ?? 0, $totals['orders_count'] ?? 0));
     }
 
+    /**
+     * Orders that were billed and stayed sold. A cancelled order never invoices,
+     * and a returned or RTO order is revenue that came back — counting them
+     * would understate what an order the customer kept is actually worth.
+     *
+     * @param  array<string, mixed>  $totals
+     */
+    public function netOrders(array $totals): int
+    {
+        return max(0, (int) ($totals['invoiced_orders'] ?? 0)
+            - (int) ($totals['returned_orders'] ?? 0)
+            - (int) ($totals['rto_orders'] ?? 0));
+    }
+
+    /** @param array<string, mixed> $totals */
+    public function netAov(array $totals): float
+    {
+        return round(Num::safeDivide((int) ($totals['net_sales'] ?? 0), $this->netOrders($totals)));
+    }
+
+    /** @param array<string, mixed> $totals */
+    public function grossAov(array $totals): float
+    {
+        return round(Num::safeDivide((int) ($totals['gross_sales'] ?? 0), (int) ($totals['orders_count'] ?? 0)));
+    }
+
     /** @param array<string, int> $totals */
     public function returnRate(array $totals): float
     {

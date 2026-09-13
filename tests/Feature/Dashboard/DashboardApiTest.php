@@ -147,7 +147,7 @@ it('serves KPIs from the rollup with a previous-period comparison', function ():
         ]);
 
     $keys = collect($response->json('data'))->pluck('key');
-    expect($keys)->toContain('gross_sales', 'invoiced_sales', 'net_sales', 'orders', 'contribution_margin_pct', 'aov');
+    expect($keys)->toContain('gross_sales', 'invoiced_sales', 'net_sales', 'orders', 'contribution_margin_pct', 'net_aov', 'gross_aov');
 
     $netSales = collect($response->json('data'))->firstWhere('key', 'net_sales');
     expect((int) $netSales['value'])->toBe(Money::fromRupees(2000));

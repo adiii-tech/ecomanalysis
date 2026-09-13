@@ -52,10 +52,19 @@ class KpiQuery
                 'Net sales minus COGS, fees, logistics, packaging and gateway charges, as a share of net sales.',
                 'order-profitability')->toArray(),
 
-            $this->metrics->derived('aov', 'AOV',
-                $this->metrics->aov($now), $this->metrics->aov($prev), $series,
-                fn (array $row): float => (float) round(Num::safeDivide($row['net_sales'], $row['orders_count'])),
-                'currency', true, 'Net sales divided by orders.', 'orders')->toArray(),
+            $this->metrics->derived('net_aov', 'Net AOV',
+                $this->metrics->netAov($now), $this->metrics->netAov($prev), $series,
+                fn (array $row): float => $this->metrics->netAov($row),
+                'currency', true,
+                'Net sales divided by the orders that stuck: cancelled, returned and RTO orders come off both sides.',
+                'orders')->toArray(),
+
+            $this->metrics->derived('gross_aov', 'Gross AOV',
+                $this->metrics->grossAov($now), $this->metrics->grossAov($prev), $series,
+                fn (array $row): float => $this->metrics->grossAov($row),
+                'currency', true,
+                'Gross sales divided by every order placed, before discounts, cancellations and returns.',
+                'orders')->toArray(),
         ];
     }
 

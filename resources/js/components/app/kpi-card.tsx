@@ -134,7 +134,7 @@ export function KpiStrip({
 }) {
     const gridClass = cn(
         'grid gap-3',
-        columns >= 6 ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-6' : columns === 5 ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4',
+        columns >= 7 ? 'grid-cols-2 md:grid-cols-4 xl:grid-cols-7' : columns === 6 ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-6' : columns === 5 ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4',
     );
 
     if (loading || !metrics) {
