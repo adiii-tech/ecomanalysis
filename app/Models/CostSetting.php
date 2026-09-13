@@ -19,6 +19,12 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $rto_handling_cost
  * @property int $default_shipping_cost
  * @property float $gateway_fee_pct
+ * @property float $cod_commission_pct
+ * @property float $upi_commission_pct
+ * @property float $cards_commission_pct
+ * @property float $dc_commission_pct
+ * @property float $netbanking_commission_pct
+ * @property float $wallets_commission_pct
  * @property string $gst_mode
  * @property int $monthly_fixed_opex
  * @property ?CarbonImmutable $created_at
@@ -45,6 +51,12 @@ class CostSetting extends Model
         'rto_handling_cost' => 0,
         'default_shipping_cost' => 0,
         'gateway_fee_pct' => 2.0,
+        'cod_commission_pct' => 0,
+        'upi_commission_pct' => 0,
+        'cards_commission_pct' => 0,
+        'dc_commission_pct' => 0,
+        'netbanking_commission_pct' => 0,
+        'wallets_commission_pct' => 0,
         'gst_mode' => 'inclusive',
         'monthly_fixed_opex' => 0,
     ];
@@ -54,6 +66,12 @@ class CostSetting extends Model
     {
         return [
             'gateway_fee_pct' => 'float',
+            'cod_commission_pct' => 'float',
+            'upi_commission_pct' => 'float',
+            'cards_commission_pct' => 'float',
+            'dc_commission_pct' => 'float',
+            'netbanking_commission_pct' => 'float',
+            'wallets_commission_pct' => 'float',
         ];
     }
 }

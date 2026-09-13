@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Domain\Access\Actions\SignOutOtherDevices;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\User;
@@ -201,17 +202,8 @@ class ProfileController extends Controller
 
     private function flushOtherSessions(Request $request): void
     {
-        if (config('session.driver') !== 'database') {
-            return;
-        }
-
-        $current = $this->currentSessionId($request);
-
-        DB::table(config('session.table', 'sessions'))
-            ->where('user_id', $request->user()->id)
-            // Called with an API token there is no session to keep, so every
-            // browser session goes — which is what a password change should do.
-            ->when($current !== null, fn ($query) => $query->where('id', '!=', $current))
-            ->delete();
+        // Called with an API token there is no session to keep, so every browser
+        // session goes — which is what a password change should do.
+        app(SignOutOtherDevices::class)->handle($request->user(), $this->currentSessionId($request));
     }
 }

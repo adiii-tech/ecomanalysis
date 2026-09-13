@@ -95,8 +95,9 @@ it('corrects orders that were stored with the wrong payment mode', function (): 
 
     expect($fresh->payment_mode)->toBe(PaymentMode::Cod)
         ->and($fresh->payment_gateway)->toBe('cash_on_delivery')
-        // The COD charge only lands once the mode is right.
-        ->and($fresh->logistics_amount)->toBeGreaterThan($order->logistics_amount);
+        // The COD charge only lands once the mode is right, and the prepaid gateway fee comes off.
+        ->and($fresh->logistics_amount)->toBeGreaterThan($wrong->logistics_amount)
+        ->and($fresh->gateway_fee_amount)->toBeLessThanOrEqual($wrong->gateway_fee_amount);
 
     Queue::assertPushed(RebuildRollups::class);
 });

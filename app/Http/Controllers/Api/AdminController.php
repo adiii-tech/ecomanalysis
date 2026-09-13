@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Domain\Access\Actions\SignOutOtherDevices;
 use App\Domain\Access\PermissionRegistry;
 use App\Domain\Access\RoleProvisioner;
 use App\Domain\Access\RoleRegistry;
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -137,7 +139,7 @@ class AdminController extends Controller
         return ApiResponse::ok(null, message: 'Invite revoked.');
     }
 
-    public function updateUser(Request $request, int $user): JsonResponse
+    public function updateUser(Request $request, int $user, SignOutOtherDevices $signOut): JsonResponse
     {
         $model = User::query()->find($user);
 
@@ -147,15 +149,35 @@ class AdminController extends Controller
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
+            'email' => ['sometimes', 'email', 'max:190', Rule::unique('users')->ignore($model->id)],
+            'password' => ['sometimes', 'confirmed', Password::min(10)->letters()->numbers()],
+            'current_password' => ['sometimes', 'string'],
             'role' => ['sometimes', Rule::in($this->assignableRoles())],
             'is_active' => ['sometimes', 'boolean'],
             'must_change_password' => ['sometimes', 'boolean'],
             'ai_credit_limit' => ['sometimes', 'integer', 'min:0', 'max:100000'],
         ]);
 
+        $isSelf = $model->id === $request->user()->id;
+
         // Locking yourself out is the one mistake with no in-app recovery.
-        if ($model->id === $request->user()->id && ($validated['is_active'] ?? true) === false) {
+        if ($isSelf && ($validated['is_active'] ?? true) === false) {
             return ApiResponse::error('You cannot disable your own account.', 422);
+        }
+
+        // Changing your own sign-in details proves who you are, not what you administer —
+        // otherwise a borrowed session could quietly take the account over.
+        if ($isSelf && (isset($validated['email']) || isset($validated['password']))
+            && ! Hash::check((string) ($validated['current_password'] ?? ''), (string) $model->password)) {
+            return ApiResponse::error('That is not your current password.', 422);
+        }
+
+        unset($validated['current_password']);
+
+        if (isset($validated['password'])) {
+            $validated['password'] = Hash::make($validated['password']);
+            // A password you set for someone else is a handover, so they pick their own next sign-in.
+            $validated['must_change_password'] ??= ! $isSelf;
         }
 
         if (isset($validated['role'])) {
@@ -165,11 +187,17 @@ class AdminController extends Controller
             unset($validated['role']);
         }
 
+        $passwordChanged = isset($validated['password']);
         $model->forceFill($validated)->save();
 
-        activity('admin')->performedOn($model)->withProperties($validated)->log('user.updated');
+        if ($passwordChanged) {
+            $signOut->handle($model, $isSelf && $request->hasSession() ? $request->session()->getId() : null);
+        }
 
-        return ApiResponse::ok(null, message: 'User updated.');
+        // Field names only: an audit trail should never carry the credential itself.
+        activity('admin')->performedOn($model)->withProperties(['fields' => array_keys($validated)])->log('user.updated');
+
+        return ApiResponse::ok(null, message: $passwordChanged ? 'User updated. Their other devices were signed out.' : 'User updated.');
     }
 
     public function resetPassword(Request $request, int $user): JsonResponse
@@ -428,6 +456,12 @@ class AdminController extends Controller
                 'default_shipping_cost' => Money::toRupees($costs->default_shipping_cost),
                 'monthly_fixed_opex' => Money::toRupees($costs->monthly_fixed_opex),
                 'gateway_fee_pct' => (float) $costs->gateway_fee_pct,
+                'cod_commission_pct' => (float) $costs->cod_commission_pct,
+                'upi_commission_pct' => (float) $costs->upi_commission_pct,
+                'cards_commission_pct' => (float) $costs->cards_commission_pct,
+                'dc_commission_pct' => (float) $costs->dc_commission_pct,
+                'netbanking_commission_pct' => (float) $costs->netbanking_commission_pct,
+                'wallets_commission_pct' => (float) $costs->wallets_commission_pct,
                 'gst_mode' => $costs->gst_mode,
             ],
             'tenant_profile' => [
@@ -474,6 +508,12 @@ class AdminController extends Controller
             'cost_settings.default_shipping_cost' => ['numeric', 'min:0'],
             'cost_settings.monthly_fixed_opex' => ['numeric', 'min:0'],
             'cost_settings.gateway_fee_pct' => ['numeric', 'min:0', 'max:100'],
+            'cost_settings.cod_commission_pct' => ['numeric', 'min:0', 'max:100'],
+            'cost_settings.upi_commission_pct' => ['numeric', 'min:0', 'max:100'],
+            'cost_settings.cards_commission_pct' => ['numeric', 'min:0', 'max:100'],
+            'cost_settings.dc_commission_pct' => ['numeric', 'min:0', 'max:100'],
+            'cost_settings.netbanking_commission_pct' => ['numeric', 'min:0', 'max:100'],
+            'cost_settings.wallets_commission_pct' => ['numeric', 'min:0', 'max:100'],
             'benchmarks' => ['array'],
             'benchmarks.target_roas' => ['numeric', 'min:0'],
             'benchmarks.target_margin_pct' => ['numeric', 'min:0', 'max:100'],

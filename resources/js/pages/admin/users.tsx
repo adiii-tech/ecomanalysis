@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Copy, KeyRound, Mail, RotateCcw, Search, ShieldCheck, UserPlus } from 'lucide-react';
+import { Copy, KeyRound, Mail, Pencil, RotateCcw, Search, ShieldCheck, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppLayout } from '@/layouts/app-layout';
 import { ChartCard } from '@/components/app/chart-card';
@@ -81,6 +81,9 @@ export default function AdminUsers() {
     const [permissions, setPermissions] = useState<ModuleRow[] | null>(null);
     const [inviting, setInviting] = useState(false);
     const [inviteForm, setInviteForm] = useState({ email: '', role: 'ANALYST' });
+    const [credentialsFor, setCredentialsFor] = useState<UserRow | null>(null);
+    const [credentialForm, setCredentialForm] = useState({ name: '', email: '', password: '', password_confirmation: '', current_password: '' });
+    const [savingCredentials, setSavingCredentials] = useState(false);
     const [search, setSearch] = useState('');
 
     useEffect(() => {
@@ -135,6 +138,38 @@ export default function AdminUsers() {
             void load();
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'Could not save.');
+        }
+    }
+
+    async function saveCredentials() {
+        if (!credentialsFor) return;
+
+        // Only what actually changed goes up: resending your own unchanged email
+        // would ask you for a current password you had no reason to type.
+        const payload: Record<string, string> = {};
+        if (credentialForm.name !== credentialsFor.name) payload.name = credentialForm.name;
+        if (credentialForm.email !== credentialsFor.email) payload.email = credentialForm.email;
+        if (credentialForm.password !== '') {
+            payload.password = credentialForm.password;
+            payload.password_confirmation = credentialForm.password_confirmation;
+        }
+        if (credentialForm.current_password !== '') payload.current_password = credentialForm.current_password;
+
+        if (Object.keys(payload).length === 0) {
+            setCredentialsFor(null);
+            return;
+        }
+
+        setSavingCredentials(true);
+        try {
+            const response = await apiSend<null>('PUT', `admin/users/${credentialsFor.id}`, payload);
+            toast.success(response.message ?? 'User updated.');
+            setCredentialsFor(null);
+            void load();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Could not save.');
+        } finally {
+            setSavingCredentials(false);
         }
     }
 
@@ -207,6 +242,23 @@ export default function AdminUsers() {
                                     { key: 'actions', header: '', align: 'right', render: (r) => (
                                         can('admin.users.manage') && (
                                             <div className="flex justify-end gap-1">
+                                                <Button
+                                                    size="xs"
+                                                    variant="ghost"
+                                                    title="Change name, email or password"
+                                                    onClick={() => {
+                                                        setCredentialsFor(r);
+                                                        setCredentialForm({
+                                                            name: r.name,
+                                                            email: r.email,
+                                                            password: '',
+                                                            password_confirmation: '',
+                                                            current_password: '',
+                                                        });
+                                                    }}
+                                                >
+                                                    <Pencil className="size-3" />
+                                                </Button>
                                                 <Button size="xs" variant="ghost" onClick={() => openPermissions(r)}>Permissions</Button>
                                                 <Button
                                                     size="xs"
@@ -436,6 +488,77 @@ export default function AdminUsers() {
                     </div>
                 </SheetContent>
             </Sheet>
+
+            <Sheet open={credentialsFor !== null} onOpenChange={(open) => !open && setCredentialsFor(null)}>
+                <SheetContent side="right" className="sm:max-w-md">
+                    <SheetHeader>
+                        <SheetTitle>Sign-in details · {credentialsFor?.name}</SheetTitle>
+                        <SheetDescription>
+                            Leave the password blank to keep the current one. A password you set for someone else has to
+                            be changed by them at their next sign-in.
+                        </SheetDescription>
+                    </SheetHeader>
+
+                    <div className="flex-1 space-y-4 p-5">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="user-name">Name</Label>
+                            <Input
+                                id="user-name"
+                                value={credentialForm.name}
+                                onChange={(e) => setCredentialForm((f) => ({ ...f, name: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="user-email">Email</Label>
+                            <Input
+                                id="user-email"
+                                type="email"
+                                value={credentialForm.email}
+                                onChange={(e) => setCredentialForm((f) => ({ ...f, email: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="user-password">New password</Label>
+                            <Input
+                                id="user-password"
+                                type="password"
+                                autoComplete="new-password"
+                                value={credentialForm.password}
+                                onChange={(e) => setCredentialForm((f) => ({ ...f, password: e.target.value }))}
+                            />
+                            <p className="text-[11px] text-muted-foreground">At least 10 characters, with letters and numbers.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="user-password-confirm">Confirm new password</Label>
+                            <Input
+                                id="user-password-confirm"
+                                type="password"
+                                autoComplete="new-password"
+                                value={credentialForm.password_confirmation}
+                                onChange={(e) => setCredentialForm((f) => ({ ...f, password_confirmation: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="user-current-password">Your current password</Label>
+                            <Input
+                                id="user-current-password"
+                                type="password"
+                                autoComplete="current-password"
+                                value={credentialForm.current_password}
+                                onChange={(e) => setCredentialForm((f) => ({ ...f, current_password: e.target.value }))}
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                                Only needed when you are changing your own email or password.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+                        <Button variant="ghost" size="sm" onClick={() => setCredentialsFor(null)}>Cancel</Button>
+                        <Button size="sm" disabled={savingCredentials} onClick={saveCredentials}>Save</Button>
+                    </div>
+                </SheetContent>
+            </Sheet>
         </AppLayout>
     );
 }
@@ -493,6 +616,12 @@ function SettingsEditor({
         default_shipping_cost: 'Default shipping cost (₹)',
         monthly_fixed_opex: 'Monthly fixed opex (₹)',
         gateway_fee_pct: 'Payment gateway fee (%)',
+        cod_commission_pct: 'COD commission (%)',
+        upi_commission_pct: 'UPI commission (%)',
+        cards_commission_pct: 'Cards commission (%)',
+        dc_commission_pct: 'DC commission (%)',
+        netbanking_commission_pct: 'NetBanking commission (%)',
+        wallets_commission_pct: 'Wallets commission (%)',
     };
 
     const BENCHMARK_LABELS: Record<string, string> = {
