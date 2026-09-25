@@ -22,7 +22,7 @@ class GetChannelBreakdownTool extends BaseMetricTool
 
     public function description(): string
     {
-        return 'Net sales, contribution margin, AOV, return rate and RTO rate for every sales channel (Shopify D2C, Amazon, Flipkart, Myntra, Meesho and so on), plus the same split by COD vs prepaid. Use for "which channel is most profitable" or any COD-versus-prepaid question.';
+        return 'Net sales, contribution margin, AOV, return rate and RTO rate for every sales channel (Shopify D2C, Amazon, Flipkart, Myntra, Meesho and so on), plus the same split by COD vs prepaid and, inside prepaid, by payment instrument (UPI, cards, net banking, wallets, pay later). Use for "which channel is most profitable", any COD-versus-prepaid question, or "how much of my prepaid is UPI".';
     }
 
     public function permission(): string
@@ -60,6 +60,15 @@ class GetChannelBreakdownTool extends BaseMetricTool
                 'rto_pct' => $row['rto_pct'],
                 'share_of_orders_pct' => $row['share_of_orders'],
             ], $modes['rows']),
+            'prepaid_instruments' => array_map(fn (array $row): array => [
+                'instrument' => $row['label'],
+                'orders' => $row['orders'],
+                'net_sales' => $this->money($row['net_sales']),
+                'margin_pct' => $row['net_margin_pct'],
+                'gateway_fee_pct' => $row['fee_pct'],
+                'share_of_prepaid_orders_pct' => $row['share_of_orders'],
+            ], $modes['prepaid_breakdown']['rows']),
+            'prepaid_instrument_caveat' => $modes['prepaid_breakdown']['caveat'],
             'payment_verdict' => $modes['verdict']['headline'] ?? null,
         ];
     }

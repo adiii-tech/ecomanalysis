@@ -23,6 +23,8 @@ import { KpiStrip } from '@/components/app/kpi-card';
 import { ChartCard } from '@/components/app/chart-card';
 import { PermissionGuard } from '@/components/app/permission-guard';
 import { ReturnsBasisToggle } from '@/components/app/returns-basis-toggle';
+import { BarList } from '@/components/app/bar-list';
+import { CaveatNote } from '@/components/app/caveat-note';
 import { DataTable, type Column } from '@/components/app/data-table';
 import { DrilldownDrawer } from '@/components/app/drilldown-drawer';
 import { EmptyState } from '@/components/app/empty-state';
@@ -72,6 +74,29 @@ interface PaymentRow {
     rto_pct: number;
     return_pct: number;
     aov: number;
+}
+
+interface PaymentInstrumentRow {
+    instrument: string;
+    label: string;
+    identified: boolean;
+    orders: number;
+    net_sales: number;
+    fees: number;
+    net_margin: number;
+    net_margin_pct: number;
+    fee_pct: number;
+    share_of_orders: number;
+    share_of_sales: number;
+    aov: number;
+}
+
+interface PrepaidBreakdown {
+    rows: PaymentInstrumentRow[];
+    orders: number;
+    net_sales: number;
+    identified_pct: number;
+    caveat: string | null;
 }
 
 interface OrderRow {
@@ -133,7 +158,7 @@ export default function Dashboard() {
     const waterfall = useWidget<{ rows: SummaryRow[] }>('dashboard/sales-summary');
     const journey = useWidget<JourneyStep[]>('dashboard/sales-journey');
     const marginTrend = useWidget<{ date: string; net_sales: number; contribution_margin: number; margin_pct: number }[]>('dashboard/revenue-margin-trend');
-    const payment = useWidget<{ rows: PaymentRow[]; verdict: Verdict }>('dashboard/payment-mode-economics');
+    const payment = useWidget<{ rows: PaymentRow[]; prepaid_breakdown?: PrepaidBreakdown; verdict: Verdict }>('dashboard/payment-mode-economics');
     const channelMix = useWidget<{ rows: ChannelRow[]; verdict: Verdict }>('dashboard/channel-mix');
     const topStates = useWidget<{ rows: StateRow[] }>('dashboard/top-states');
     const categories = useWidget<{ rows: { category: string; units: number; net_sales: number; margin_pct: number; share_pct: number }[] }>('dashboard/top-categories');
@@ -385,6 +410,28 @@ export default function Dashboard() {
                                 </div>
                             ))}
                         </div>
+
+                        {(payment.data?.prepaid_breakdown?.rows.length ?? 0) > 0 && (
+                            <div className="mt-4 border-t border-border pt-3">
+                                <div className="mb-2.5 flex items-baseline justify-between gap-2">
+                                    <p className="text-xs font-semibold">Inside prepaid</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        How {formatNumber(payment.data?.prepaid_breakdown?.orders ?? 0)} prepaid orders actually paid
+                                    </p>
+                                </div>
+                                <BarList
+                                    rows={(payment.data?.prepaid_breakdown?.rows ?? []).map((row, index) => ({
+                                        label: row.label,
+                                        value: row.net_sales,
+                                        share: row.share_of_sales,
+                                        color: row.identified ? CHART_COLORS[index % CHART_COLORS.length] : 'var(--muted-foreground)',
+                                        secondary: `${formatNumber(row.orders)} order${row.orders === 1 ? '' : 's'} · ${formatPercent(row.net_margin_pct)} margin`,
+                                        tone: row.net_margin < 0 ? ('bad' as const) : ('neutral' as const),
+                                    }))}
+                                />
+                                <CaveatNote caveat={payment.data?.prepaid_breakdown?.caveat} className="mt-2.5" />
+                            </div>
+                        )}
                     </ChartCard>
                 </PermissionGuard>
 
