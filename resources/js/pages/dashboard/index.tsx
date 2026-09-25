@@ -163,7 +163,7 @@ export default function Dashboard() {
     const topStates = useWidget<{ rows: StateRow[] }>('dashboard/top-states');
     const categories = useWidget<{ rows: { category: string; units: number; net_sales: number; margin_pct: number; share_pct: number }[] }>('dashboard/top-categories');
     const rtoStates = useWidget<{ rows: { state: string; orders: number; rto_count: number; rto_pct: number; cod_share_pct: number }[]; threshold: number; caveat: string; verdict: Verdict }>('dashboard/top-rto-states');
-    const matrix = useWidget<{ rows: MatrixRow[]; rto_threshold: number }>('dashboard/state-action-matrix');
+    const matrix = useWidget<{ rows: MatrixRow[]; rto_threshold: number; median_net_sales: number; excluded_states: number; caveat: string | null }>('dashboard/state-action-matrix');
     const pareto = useWidget<{ rows: { rank: number; sku_code: string; name: string; margin: number; cumulative_pct: number }[]; pareto_sku_count: number; sku_count: number; verdict: Verdict }>('dashboard/sku-pareto');
     const lossOrders = useWidget<{ rows: OrderRow[]; count: number; total_loss: number; verdict: Verdict }>('dashboard/top-loss-orders');
     const recentOrders = useWidget<{ rows: OrderRow[] }>('dashboard/recent-orders');
@@ -571,7 +571,10 @@ export default function Dashboard() {
                         loading={matrix.loading}
                         error={matrix.error}
                         onRetry={matrix.reload}
+                        caveat={matrix.data?.caveat}
                         exportDataset="state_roi"
+                        empty={(matrix.data?.rows.length ?? 0) === 0}
+                        emptyState={<div className="py-8 text-center text-xs text-muted-foreground">No state has enough orders in this period to read an RTO rate.</div>}
                     >
                         <ResponsiveContainer width="100%" height={280}>
                             <ScatterChart margin={{ top: 8, right: 12, bottom: 20, left: 4 }}>
@@ -591,10 +594,26 @@ export default function Dashboard() {
                                     {...AXIS_PROPS}
                                     tickFormatter={axisPercent}
                                     width={44}
+                                    // Keep the threshold inside the axis even when every state is at 0% RTO,
+                                    // otherwise the line the whole chart is read against is off-screen.
+                                    domain={[0, (dataMax: number) => Math.ceil(Math.max(dataMax * 1.15, (matrix.data?.rto_threshold ?? 15) * 1.25))]}
                                     label={{ value: 'RTO %', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'var(--muted-foreground)' }}
                                 />
                                 <ZAxis type="number" dataKey="orders" range={[40, 380]} />
-                                <ReferenceLine y={matrix.data?.rto_threshold ?? 15} stroke="var(--bad)" strokeDasharray="4 4" />
+                                <ReferenceLine
+                                    y={matrix.data?.rto_threshold ?? 15}
+                                    stroke="var(--bad)"
+                                    strokeDasharray="4 4"
+                                    label={{ value: 'RTO threshold', position: 'insideTopRight', fontSize: 10, fill: 'var(--bad)' }}
+                                />
+                                {(matrix.data?.rows.length ?? 0) > 1 && (
+                                    <ReferenceLine
+                                        x={matrix.data?.median_net_sales}
+                                        stroke="var(--muted-foreground)"
+                                        strokeDasharray="4 4"
+                                        label={{ value: 'Median state', position: 'insideTopLeft', fontSize: 10, fill: 'var(--muted-foreground)' }}
+                                    />
+                                )}
                                 <RTooltip
                                     cursor={{ strokeDasharray: '3 3' }}
                                     content={({ active, payload }) => {
@@ -674,10 +693,22 @@ export default function Dashboard() {
                         exportDataset="top_skus"
                         empty={(pareto.data?.rows.length ?? 0) === 0}
                     >
-                        <ResponsiveContainer width="100%" height={250}>
+                        <ResponsiveContainer width="100%" height={272}>
                             <ComposedChart data={(pareto.data?.rows ?? []).slice(0, 25)} margin={{ top: 4, right: 8, bottom: 0, left: 4 }}>
                                 <CartesianGrid {...GRID_PROPS} />
-                                <XAxis dataKey="sku_code" {...AXIS_PROPS} interval={0} angle={-40} textAnchor="end" height={62} />
+                                <XAxis
+                                    dataKey="sku_code"
+                                    {...AXIS_PROPS}
+                                    interval={0}
+                                    angle={-40}
+                                    textAnchor="end"
+                                    // A 40-degree label runs down-left out of the card, so a long SKU code used
+                                    // to be clipped mid-word. Capped at 14 characters it needs 65px of vertical
+                                    // room at this 11px tick font; 84 leaves headroom, and the tooltip and the
+                                    // CSV export both still carry the full code.
+                                    height={84}
+                                    tickFormatter={(code: string) => (code.length > 14 ? `${code.slice(0, 13)}…` : code)}
+                                />
                                 <YAxis yAxisId="left" {...AXIS_PROPS} tickFormatter={axisCurrency} width={54} />
                                 <YAxis yAxisId="right" orientation="right" {...AXIS_PROPS} tickFormatter={axisPercent} width={40} domain={[0, 100]} />
                                 <ReferenceLine yAxisId="right" y={80} stroke="var(--warn)" strokeDasharray="4 4" />

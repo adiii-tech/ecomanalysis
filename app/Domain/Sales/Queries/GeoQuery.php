@@ -14,6 +14,14 @@ use Illuminate\Support\Facades\DB;
 
 class GeoQuery
 {
+    /**
+     * A rate needs a denominator worth dividing by. One RTO out of two orders
+     * is 50%, and putting that next to a state with 300 orders would be a lie
+     * about which one has a problem, so small states sit out of the rate views
+     * — and every view that drops them says so.
+     */
+    private const MIN_ORDERS_FOR_RATE = 5;
+
     /** @return Collection<int, \stdClass> */
     public function states(WidgetFilters $filters, int $limit = 10): Collection
     {
@@ -49,7 +57,7 @@ class GeoQuery
         $rows = $this->base($filters)
             ->selectRaw('state, SUM(orders_count) AS orders, SUM(rto_count) AS rto_count, SUM(net_sales) AS net_sales, SUM(cod_orders) AS cod_orders')
             ->groupBy('state')
-            ->havingRaw('SUM(orders_count) >= 5')
+            ->havingRaw('SUM(orders_count) >= '.self::MIN_ORDERS_FOR_RATE)
             ->orderByDesc('rto_count')
             ->limit($limit)
             ->get()
@@ -70,7 +78,7 @@ class GeoQuery
             'rows' => $rows->all(),
             'flagged' => $flagged->all(),
             'threshold' => $threshold,
-            'caveat' => 'States with fewer than 5 orders are excluded — the rate would be noise.',
+            'caveat' => sprintf('States with fewer than %d orders are excluded — the rate would be noise.', self::MIN_ORDERS_FOR_RATE),
             'verdict' => ($flagged->isEmpty()
                 ? Verdict::good('No state is above your '.$threshold.'% RTO threshold.')
                 : Verdict::bad(
@@ -88,11 +96,16 @@ class GeoQuery
      */
     public function actionMatrix(WidgetFilters $filters, float $rtoThreshold = 15.0): array
     {
-        $rows = $this->base($filters)
+        // Every state in the window is read, then the too-small ones are set
+        // aside here rather than in SQL, so the widget can say how many states
+        // it left out instead of quietly losing them off the chart.
+        $all = $this->base($filters)
             ->selectRaw('state, SUM(orders_count) AS orders, SUM(net_sales) AS net_sales, SUM(margin) AS margin, SUM(rto_count) AS rto_count, SUM(cod_orders) AS cod_orders')
             ->groupBy('state')
-            ->havingRaw('SUM(orders_count) >= 5')
             ->get();
+
+        $rows = $all->filter(static fn (object $r): bool => (int) $r->orders >= self::MIN_ORDERS_FOR_RATE)->values();
+        $excluded = $all->count() - $rows->count();
 
         $medianSales = Num::median($rows->pluck('net_sales')->map(static fn ($v): float => (float) $v)->all());
 
@@ -125,6 +138,15 @@ class GeoQuery
             })->sortByDesc('net_sales')->values()->all(),
             'median_net_sales' => (int) $medianSales,
             'rto_threshold' => $rtoThreshold,
+            'excluded_states' => $excluded,
+            'caveat' => $excluded === 0
+                ? null
+                : sprintf(
+                    '%d state%s left out for having fewer than %d orders — an RTO rate off that few orders is noise, not a signal.',
+                    $excluded,
+                    $excluded === 1 ? '' : 's',
+                    self::MIN_ORDERS_FOR_RATE,
+                ),
         ];
     }
 
