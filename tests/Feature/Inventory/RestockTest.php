@@ -152,3 +152,68 @@ it('will not show the restock desk to a role without the permission', function (
 
     $this->actingAs($analyst)->getJson('/api/restock')->assertForbidden();
 });
+
+it('hands the drawer twelve months of history, netted the same way the table is', function (): void {
+    $sku = ($this->sku)('HIST-1', 100);
+    ($this->stock)($sku, 10);
+    ($this->sold)($sku, 0, 12, Money::fromRupees(4800), 2);
+    ($this->sold)($sku, 200, 5, Money::fromRupees(2000));
+
+    $data = $this->actingAs($this->user)->getJson('/api/restock/sku/'.$sku->id)->assertOk()->json('data');
+
+    expect($data['months'])->toHaveCount(12)
+        // 12 sold less 2 returned on the anchor day.
+        ->and($data['units_30'])->toBe(10)
+        ->and($data['lifetime_units'])->toBe(15)
+        ->and($data['returns_lifetime'])->toBe(2)
+        ->and(collect($data['months'])->last()['units'])->toBe(10);
+
+    $gross = $this->actingAs($this->user)->getJson('/api/restock/sku/'.$sku->id.'?returns=gross')->assertOk()->json('data');
+
+    expect($gross['units_30'])->toBe(12)
+        ->and($gross['lifetime_units'])->toBe(17);
+});
+
+it('floors a month that took back more than it sold', function (): void {
+    $sku = ($this->sku)('REFUND-1', 100);
+    ($this->sold)($sku, 0, 1, Money::fromRupees(400), 6);
+
+    $data = $this->actingAs($this->user)->getJson('/api/restock/sku/'.$sku->id)->assertOk()->json('data');
+
+    // A month of net returns is an empty bar, never a negative one.
+    expect(collect($data['months'])->pluck('units')->every(fn (int $units): bool => $units >= 0))->toBeTrue();
+});
+
+it('keeps the history endpoint behind the restock permission', function (): void {
+    $sku = ($this->sku)('LOCKED-1', 100);
+    $analyst = $this->userFor($this->tenant, ['catalog.stock.view']);
+
+    $this->actingAs($analyst)->getJson('/api/restock/sku/'.$sku->id)->assertForbidden();
+});
+
+it('says a freshly added product is new rather than quietly calling it dead', function (): void {
+    ($this->sold)(($this->sku)('LIVE-1', 50), 0, 4, Money::fromRupees(1600));
+
+    $fresh = ($this->sku)('FRESH-1', 100);
+    ($this->stock)($fresh, 20);
+
+    $data = $this->actingAs($this->user)->getJson('/api/restock?window=90&new_days=30')->assertOk()->json('data');
+
+    expect(collect($data['rows'])->firstWhere('sku_code', 'FRESH-1')['bucket'])->toBe('new')
+        ->and(collect($data['health'])->pluck('text')->join(' '))->toContain('read as New rather than Dead');
+});
+
+it('owns up to sales booked against SKUs that are no longer active', function (): void {
+    $live = ($this->sku)('LIVE-1', 50);
+    ($this->stock)($live, 10);
+    ($this->sold)($live, 0, 10, Money::fromRupees(4000));
+
+    $archived = ($this->sku)('GONE-1', 50);
+    $archived->update(['is_active' => false]);
+    ($this->sold)($archived, 1, 40, Money::fromRupees(16000));
+
+    $data = $this->actingAs($this->user)->getJson('/api/restock?window=90')->assertOk()->json('data');
+
+    expect(collect($data['rows'])->pluck('sku_code'))->not->toContain('GONE-1')
+        ->and(collect($data['health'])->pluck('text')->join(' '))->toContain('40 units sold against archived or deleted SKUs');
+});

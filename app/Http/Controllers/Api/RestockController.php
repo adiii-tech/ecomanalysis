@@ -31,7 +31,6 @@ class RestockController extends Controller
             'round' => ['nullable', 'integer', 'min:1', 'max:10000'],
             'projection' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'best' => ['nullable', Rule::in(['all', '365', '180', '90', '30'])],
-            'best_top_only' => ['nullable', 'boolean'],
             'exclude' => ['nullable', 'string', 'max:200'],
             'returns' => ['nullable', Rule::in(['net', 'gross'])],
             'cost_mode' => ['nullable', Rule::in(['flat', 'percent'])],
@@ -49,12 +48,23 @@ class RestockController extends Controller
             'round' => (int) ($validated['round'] ?? 1),
             'projPerDay' => (float) ($validated['projection'] ?? 0),
             'best' => (string) ($validated['best'] ?? 'all'),
-            'bestTopOnly' => (bool) ($validated['best_top_only'] ?? false),
             'exclude' => $this->keywords($validated['exclude'] ?? 'stack, combo'),
             'netReturns' => ($validated['returns'] ?? 'net') === 'net',
             'costMode' => (string) ($validated['cost_mode'] ?? 'flat'),
             'costValue' => (float) ($validated['cost_value'] ?? 150),
         ]));
+    }
+
+    /**
+     * One SKU's sales history, for the detail drawer. Kept off the list payload
+     * on purpose: twelve months per SKU across a whole catalogue is a lot of
+     * rows to send for a drawer most of them will never open.
+     */
+    public function sku(Request $request, RestockQuery $restock, int $sku): JsonResponse
+    {
+        $netReturns = $request->string('returns')->toString() !== 'gross';
+
+        return ApiResponse::ok($restock->history($sku, $netReturns));
     }
 
     /** @return list<string> */

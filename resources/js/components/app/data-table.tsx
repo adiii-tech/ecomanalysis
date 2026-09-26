@@ -8,7 +8,8 @@ import { cn } from '@/lib/utils';
 
 export interface Column<T> {
     key: string;
-    header: string;
+    /** Usually a label; a node when the header itself is a control, such as a select-all box. */
+    header: ReactNode;
     tooltip?: string;
     align?: 'left' | 'right' | 'center';
     width?: string;
@@ -144,7 +145,7 @@ export function DataTable<T>({
                                                     type="button"
                                                     onClick={() => toggleSort(column.key)}
                                                     className="text-muted-foreground/50 transition hover:text-foreground"
-                                                    aria-label={`Sort by ${column.header}`}
+                                                    aria-label={`Sort by ${column.key}`}
                                                 >
                                                     {sort?.key === column.key ? (
                                                         sort.direction === 'asc' ? (

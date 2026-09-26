@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
  * always be argued with rather than trusted blindly. Sales come from the SKU
  * rollup and are netted of returns unless the caller asks for gross.
  *
- * @phpstan-type RestockSettings array{window:int, lead:int, safety:int, target:int, over:int, dead:int, newDays:int, round:int, projPerDay:float, best:string, bestTopOnly:bool, exclude:list<string>, netReturns:bool, costMode:string, costValue:float}
+ * @phpstan-type RestockSettings array{window:int, lead:int, safety:int, target:int, over:int, dead:int, newDays:int, round:int, projPerDay:float, best:string, exclude:list<string>, netReturns:bool, costMode:string, costValue:float}
  */
 class RestockQuery
 {
@@ -53,6 +53,75 @@ class RestockQuery
             'anchor' => $anchor->toDateString(),
             'window_days_used' => $weff,
             'history_days' => $span,
+        ];
+    }
+
+    /**
+     * One SKU's sales story, for the detail drawer: twelve months of units and
+     * revenue, the 30/60/90-day pace behind the single velocity the table shows,
+     * and the lifetime totals that say whether this product ever worked.
+     *
+     * Returns are netted the same way the caller is reading the table, so the
+     * drawer can never disagree with the row that opened it.
+     *
+     * @return array<string, mixed>
+     */
+    public function history(int $skuId, bool $netReturns = true): array
+    {
+        $anchor = $this->anchor();
+        $units = self::unitsExpression($netReturns);
+        $firstMonth = $anchor->startOfMonth()->subMonths(11);
+
+        $monthly = DB::table('sku_daily_rollup')
+            ->where('tenant_id', Tenant::id())
+            ->where('sku_id', $skuId)
+            ->where('date', '>=', $firstMonth->toDateString())
+            ->selectRaw("DATE_FORMAT(date, '%Y-%m') AS month")
+            ->selectRaw("COALESCE(SUM({$units}), 0) AS units")
+            ->selectRaw('COALESCE(SUM(net_sales), 0) AS revenue')
+            ->groupBy('month')
+            ->get()
+            ->keyBy('month');
+
+        $months = [];
+
+        for ($i = 0; $i < 12; $i++) {
+            $month = $firstMonth->addMonths($i);
+            $row = $monthly->get($month->format('Y-m'));
+
+            $months[] = [
+                'month' => $month->format('Y-m'),
+                'label' => $month->format('M'),
+                'full_label' => $month->format('M Y'),
+                // A month that netted out below zero is a month of returns, not
+                // of negative demand; the bar is floored so it reads as empty.
+                'units' => max(0, (int) ($row->units ?? 0)),
+                'revenue' => max(0, (int) ($row->revenue ?? 0)),
+            ];
+        }
+
+        $totals = DB::table('sku_daily_rollup')
+            ->where('tenant_id', Tenant::id())
+            ->where('sku_id', $skuId)
+            ->selectRaw("COALESCE(SUM(CASE WHEN date >= ? THEN {$units} ELSE 0 END), 0) AS units_30", [$anchor->subDays(29)->toDateString()])
+            ->selectRaw("COALESCE(SUM(CASE WHEN date >= ? THEN {$units} ELSE 0 END), 0) AS units_60", [$anchor->subDays(59)->toDateString()])
+            ->selectRaw("COALESCE(SUM(CASE WHEN date >= ? THEN {$units} ELSE 0 END), 0) AS units_90", [$anchor->subDays(89)->toDateString()])
+            ->selectRaw("COALESCE(SUM({$units}), 0) AS lifetime_units")
+            ->selectRaw('COALESCE(SUM(net_sales), 0) AS lifetime_revenue')
+            ->selectRaw('COALESCE(SUM(returned_units), 0) AS returns_lifetime')
+            ->selectRaw('MIN(CASE WHEN units_sold > 0 THEN date END) AS first_sale')
+            ->first();
+
+        return [
+            'months' => $months,
+            'units_30' => max(0, (int) ($totals->units_30 ?? 0)),
+            'units_60' => max(0, (int) ($totals->units_60 ?? 0)),
+            'units_90' => max(0, (int) ($totals->units_90 ?? 0)),
+            'lifetime_units' => max(0, (int) ($totals->lifetime_units ?? 0)),
+            'lifetime_revenue' => max(0, (int) ($totals->lifetime_revenue ?? 0)),
+            'returns_lifetime' => max(0, (int) ($totals->returns_lifetime ?? 0)),
+            'first_sale' => $totals->first_sale ?? null,
+            'anchor' => $anchor->toDateString(),
         ];
     }
 
@@ -92,13 +161,7 @@ class RestockQuery
         $bestStart = $s['best'] === 'all' ? '1970-01-01' : $anchor->subDays(max(1, (int) $s['best']) - 1)->toDateString();
         $earliest = min($winStart, $d60, $bestStart);
 
-        // Returns are netted off the same day they were booked against, which is
-        // how the rollup stores them; counting them as sales only ever inflates.
-        // Both columns are unsigned, so the subtraction has to be cast — a day
-        // with more returns than sales would otherwise overflow rather than net.
-        $units = $s['netReturns']
-            ? '(CAST(units_sold AS SIGNED) - CAST(returned_units AS SIGNED))'
-            : 'units_sold';
+        $units = self::unitsExpression($s['netReturns']);
 
         return DB::table('sku_daily_rollup')
             ->where('tenant_id', Tenant::id())
@@ -114,6 +177,19 @@ class RestockQuery
             ->selectRaw('MAX(CASE WHEN units_sold > 0 THEN date END) AS last_sale')
             ->get()
             ->keyBy('sku_id');
+    }
+
+    /**
+     * Returns are netted off the same day they were booked against, which is how
+     * the rollup stores them; counting them as sales only ever inflates. Both
+     * columns are unsigned, so the subtraction has to be cast — a day with more
+     * returns than sales would otherwise overflow rather than net.
+     */
+    private static function unitsExpression(bool $netReturns): string
+    {
+        return $netReturns
+            ? '(CAST(units_sold AS SIGNED) - CAST(returned_units AS SIGNED))'
+            : 'units_sold';
     }
 
     /**
@@ -251,6 +327,7 @@ class RestockQuery
                     'variant_title' => $sku->variant_title,
                     'type' => (string) $sku->type,
                     'supplier_name' => $sku->supplier_name,
+                    'product_status' => $sku->product_status,
                     'image_url' => $sku->image_url,
                     'stock' => $onHand,
                     'incoming' => $incoming,
@@ -326,6 +403,21 @@ class RestockQuery
         $excess = max(0, $onHand - (int) ceil($s['target'] * $velocity));
 
         return ['overstock', $excess * $cost, $excess];
+    }
+
+    /**
+     * Every unit the window sold, active SKU or not — the denominator that says
+     * whether the rows on this page account for the whole business.
+     *
+     * @param  RestockSettings  $s
+     */
+    private function windowUnits(CarbonImmutable $anchor, int $weff, array $s): int
+    {
+        return max(0, (int) DB::table('sku_daily_rollup')
+            ->where('tenant_id', Tenant::id())
+            ->where('date', '>=', $anchor->subDays(max(1, $weff) - 1)->toDateString())
+            ->selectRaw('COALESCE(SUM('.self::unitsExpression($s['netReturns']).'), 0) AS units')
+            ->value('units'));
     }
 
     /** @param RestockSettings $s */
@@ -520,6 +612,8 @@ class RestockQuery
         $lowConfidence = 0;
         $negative = 0;
         $excluded = 0;
+        $fresh = 0;
+        $countedUnits = 0;
 
         foreach ($rows as $row) {
             $value += $row['value'];
@@ -528,6 +622,8 @@ class RestockQuery
             $lowConfidence += $row['out']['low_confidence'] ? 1 : 0;
             $negative += $row['out']['stock'] < 0 ? 1 : 0;
             $excluded += $row['bucket'] === 'excluded' ? 1 : 0;
+            $fresh += $row['bucket'] === 'new' ? 1 : 0;
+            $countedUnits += $row['units'];
         }
 
         $estPct = Num::pct($estimated, $value);
@@ -570,6 +666,23 @@ class RestockQuery
 
         if ($excluded > 0) {
             $notes[] = ['level' => 'ok', 'text' => sprintf('%d combo SKUs excluded from every ₹ and reorder figure (keywords: %s).', $excluded, implode(', ', $s['exclude']))];
+        }
+
+        if ($fresh > 0) {
+            $notes[] = ['level' => 'ok', 'text' => sprintf('%d recently-added SKUs (under %d days old, no sales yet) read as New rather than Dead — give them time.', $fresh, $s['newDays'])];
+        }
+
+        // Sales booked against a SKU that is no longer active never reach a row,
+        // so they would silently vanish from every velocity on this page.
+        $windowUnits = $this->windowUnits($anchor, $weff, $s);
+        $matchPct = Num::pct($countedUnits, $windowUnits);
+
+        if ($windowUnits > $countedUnits) {
+            $notes[] = ['level' => $matchPct < 90 ? 'bad' : 'warn', 'text' => sprintf(
+                'Only %.0f%% of units sold in this window belong to an active SKU — %s units sold against archived or deleted SKUs are not counted anywhere on this page.',
+                $matchPct,
+                number_format($windowUnits - $countedUnits),
+            )];
         }
 
         return $notes;

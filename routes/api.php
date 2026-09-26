@@ -240,6 +240,10 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
     Route::get('restock', [RestockController::class, 'index'])
         ->middleware('permission.widget:catalog.restock.view')->name('api.restock');
 
+    Route::get('restock/sku/{sku}', [RestockController::class, 'sku'])
+        ->whereNumber('sku')
+        ->middleware('permission.widget:catalog.restock.view')->name('api.restock.sku');
+
     /*
     | Inventory a brand actually operates: stock levels, adjustments, the ledger
     | behind every change, warehouses, counts and transfers. Every write goes
