@@ -191,7 +191,17 @@ class UpsertShopifyOrder
                 );
 
                 if ($item !== null) {
-                    $item->increment('returned_qty', (int) ($refundLine['quantity'] ?? 1));
+                    // Recomputed from OrderReturn rather than incremented: this
+                    // order gets re-synced every time anything about it changes
+                    // (a status touch, a tag, a later refund on a different
+                    // line), and an increment fired again on every one of those
+                    // passes — the same return counted again each time the
+                    // order was merely re-read. OrderReturn's own upsert is
+                    // already keyed on the refund line's id, so summing it is
+                    // idempotent and heals a quantity this had already inflated.
+                    $item->forceFill([
+                        'returned_qty' => OrderReturn::query()->where('order_item_id', $item->id)->sum('qty'),
+                    ])->save();
                 }
             }
         }

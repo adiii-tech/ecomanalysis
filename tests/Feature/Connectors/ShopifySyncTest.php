@@ -12,6 +12,7 @@ use App\Models\CostSetting;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderReturn;
 use App\Models\Sku;
 use App\Models\SyncRun;
 use App\Models\Transaction;
@@ -347,4 +348,102 @@ it('jumps the cursor to now once every due order is read cleanly', function (): 
     // Not left sitting two days back — a clean run with room to spare in the
     // page can safely fast-forward past today's new arrivals too.
     expect($cursorAfter->greaterThan(now()->subHour()))->toBeTrue();
+});
+
+it('books a refund against the order item it belongs to', function (): void {
+    $order = shopifyOrder(6001);
+    $order['refunds'] = [[
+        'created_at' => '2026-08-21T10:00:00+05:30',
+        'processed_at' => '2026-08-21T10:05:00+05:30',
+        'note' => 'Too small',
+        'refund_line_items' => [[
+            'id' => 7001,
+            'line_item_id' => $order['line_items'][0]['id'],
+            'quantity' => 1,
+            'subtotal' => '1000.00',
+            'restock_type' => 'return',
+        ]],
+    ]];
+
+    Http::fake([
+        '*/shop.json' => Http::response(['shop' => ['name' => 'Kaira Living']]),
+        '*/orders.json*' => Http::response(['orders' => [$order]]),
+    ]);
+
+    app(ConnectConnector::class)->handle($this->tenant, 'shopify', [
+        'shop_domain' => 'kaira.myshopify.com', 'access_token' => 'shpat_test',
+    ]);
+
+    app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'orders', 'manual');
+
+    $item = OrderItem::query()->where('external_id', (string) $order['line_items'][0]['id'])->firstOrFail();
+
+    expect($item->returned_qty)->toBe(1)
+        ->and(OrderReturn::query()->where('order_item_id', $item->id)->count())->toBe(1);
+});
+
+it('does not double-count a refund when the same order is re-synced', function (): void {
+    // The order gets touched again — a tag, a fulfillment update, anything —
+    // and the incremental sync re-reads it with the exact same refund still
+    // attached, the way Shopify's orders.json always includes it once issued.
+    $order = shopifyOrder(6002);
+    $order['refunds'] = [[
+        'created_at' => '2026-08-21T10:00:00+05:30',
+        'processed_at' => '2026-08-21T10:05:00+05:30',
+        'note' => 'Too small',
+        'refund_line_items' => [[
+            'id' => 7002,
+            'line_item_id' => $order['line_items'][0]['id'],
+            'quantity' => 1,
+            'subtotal' => '1000.00',
+            'restock_type' => 'return',
+        ]],
+    ]];
+
+    Http::fake([
+        '*/shop.json' => Http::response(['shop' => ['name' => 'Kaira Living']]),
+        '*/orders.json*' => Http::response(['orders' => [$order]]),
+    ]);
+
+    app(ConnectConnector::class)->handle($this->tenant, 'shopify', [
+        'shop_domain' => 'kaira.myshopify.com', 'access_token' => 'shpat_test',
+    ]);
+
+    app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'orders', 'manual');
+    app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'orders', 'manual');
+    app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'orders', 'manual');
+
+    $item = OrderItem::query()->where('external_id', (string) $order['line_items'][0]['id'])->firstOrFail();
+
+    // Three syncs of the same one-unit refund; still one unit, not three.
+    expect($item->returned_qty)->toBe(1)
+        ->and(OrderReturn::query()->where('order_item_id', $item->id)->count())->toBe(1);
+});
+
+it('sums two separate refunds on the same line rather than losing either', function (): void {
+    $order = shopifyOrder(6003);
+    $order['line_items'][0]['quantity'] = 3;
+    $order['refunds'] = [
+        ['created_at' => '2026-08-21T10:00:00+05:30', 'processed_at' => '2026-08-21T10:05:00+05:30', 'note' => null,
+            'refund_line_items' => [['id' => 7003, 'line_item_id' => $order['line_items'][0]['id'], 'quantity' => 1, 'subtotal' => '1000.00']]],
+        ['created_at' => '2026-08-25T10:00:00+05:30', 'processed_at' => '2026-08-25T10:05:00+05:30', 'note' => null,
+            'refund_line_items' => [['id' => 7004, 'line_item_id' => $order['line_items'][0]['id'], 'quantity' => 1, 'subtotal' => '1000.00']]],
+    ];
+
+    Http::fake([
+        '*/shop.json' => Http::response(['shop' => ['name' => 'Kaira Living']]),
+        '*/orders.json*' => Http::response(['orders' => [$order]]),
+    ]);
+
+    app(ConnectConnector::class)->handle($this->tenant, 'shopify', [
+        'shop_domain' => 'kaira.myshopify.com', 'access_token' => 'shpat_test',
+    ]);
+
+    app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'orders', 'manual');
+    app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'orders', 'manual');
+
+    $item = OrderItem::query()->where('external_id', (string) $order['line_items'][0]['id'])->firstOrFail();
+
+    expect($item->returned_qty)->toBe(2)
+        ->and(OrderReturn::query()->where('order_item_id', $item->id)->count())->toBe(2);
 });
