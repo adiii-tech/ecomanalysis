@@ -106,10 +106,25 @@ class RestockQuery
             ->selectRaw("COALESCE(SUM(CASE WHEN date >= ? THEN {$units} ELSE 0 END), 0) AS units_30", [$anchor->subDays(29)->toDateString()])
             ->selectRaw("COALESCE(SUM(CASE WHEN date >= ? THEN {$units} ELSE 0 END), 0) AS units_60", [$anchor->subDays(59)->toDateString()])
             ->selectRaw("COALESCE(SUM(CASE WHEN date >= ? THEN {$units} ELSE 0 END), 0) AS units_90", [$anchor->subDays(89)->toDateString()])
-            ->selectRaw("COALESCE(SUM({$units}), 0) AS lifetime_units")
-            ->selectRaw('COALESCE(SUM(net_sales), 0) AS lifetime_revenue')
-            ->selectRaw('COALESCE(SUM(returned_units), 0) AS returns_lifetime')
-            ->selectRaw('MIN(CASE WHEN units_sold > 0 THEN date END) AS first_sale')
+            ->first();
+
+        // "Lifetime" has to mean lifetime, and sku_daily_rollup does not: even
+        // its nightly full rebuild only ever covers 730 days back (see
+        // RebuildRollups). A store older than that would have its oldest
+        // returns and sales silently drop out of these figures if they came
+        // from the rollup, so they are read straight from orders instead —
+        // slower, but this is one SKU at a time, not a dashboard-wide query.
+        $lifetime = DB::table('order_items as oi')
+            ->join('orders as o', 'o.id', '=', 'oi.order_id')
+            ->where('oi.tenant_id', Tenant::id())
+            ->where('oi.sku_id', $skuId)
+            ->where('o.status', '<>', 'cancelled')
+            ->selectRaw($netReturns
+                ? 'COALESCE(SUM(GREATEST(oi.qty - oi.returned_qty, 0)), 0) AS units'
+                : 'COALESCE(SUM(oi.qty), 0) AS units')
+            ->selectRaw('COALESCE(SUM(oi.line_net), 0) AS revenue')
+            ->selectRaw('COALESCE(SUM(oi.returned_qty), 0) AS returned')
+            ->selectRaw('MIN(o.placed_at) AS first_sale')
             ->first();
 
         return [
@@ -117,10 +132,12 @@ class RestockQuery
             'units_30' => max(0, (int) ($totals->units_30 ?? 0)),
             'units_60' => max(0, (int) ($totals->units_60 ?? 0)),
             'units_90' => max(0, (int) ($totals->units_90 ?? 0)),
-            'lifetime_units' => max(0, (int) ($totals->lifetime_units ?? 0)),
-            'lifetime_revenue' => max(0, (int) ($totals->lifetime_revenue ?? 0)),
-            'returns_lifetime' => max(0, (int) ($totals->returns_lifetime ?? 0)),
-            'first_sale' => $totals->first_sale ?? null,
+            'lifetime_units' => max(0, (int) ($lifetime->units ?? 0)),
+            'lifetime_revenue' => max(0, (int) ($lifetime->revenue ?? 0)),
+            'returns_lifetime' => max(0, (int) ($lifetime->returned ?? 0)),
+            'first_sale' => $lifetime->first_sale !== null
+                ? CarbonImmutable::parse((string) $lifetime->first_sale, Tenant::timezone())->toDateString()
+                : null,
             'anchor' => $anchor->toDateString(),
         ];
     }
