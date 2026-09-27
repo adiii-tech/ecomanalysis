@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Domain\Inventory\Queries\RestockQuery;
 use App\Domain\Operations\Queries\InventoryQuery;
 use App\Domain\Sales\Queries\ProductQuery;
 use App\Http\Controllers\Api\Concerns\ResolvesFilters;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
+use App\Models\Benchmark;
 use App\Models\Sku;
 use App\Models\SkuCostHistory;
 use App\Support\Facades\Tenant;
@@ -280,6 +282,87 @@ class CatalogController extends Controller
         activity('catalog')->performedOn($model)->log('sku.archived');
 
         return ApiResponse::ok(null, message: sprintf('%s archived. Its history stays intact.', $model->sku_code));
+    }
+
+    /**
+     * One SKU's full picture, opened from any of the catalog tables: the same
+     * coverage numbers the row it was clicked from already showed, plus the
+     * 12-month sales story and recent cost history behind them.
+     */
+    public function skuDetail(int $sku, RestockQuery $restock): JsonResponse
+    {
+        $model = Sku::query()->find($sku);
+
+        if ($model === null) {
+            return ApiResponse::error('SKU not found.', 404);
+        }
+
+        $since = now(Tenant::timezone())->subDays(30)->toDateString();
+        $benchmark = Benchmark::query()->firstOrCreate(['tenant_id' => Tenant::id()]);
+
+        $row = DB::table('skus as s')
+            ->leftJoin('inventory as i', 'i.sku_id', '=', 's.id')
+            ->leftJoin('sku_daily_rollup as r', function ($join) use ($since): void {
+                $join->on('r.sku_id', '=', 's.id')->where('r.date', '>=', $since);
+            })
+            ->where('s.id', $model->id)
+            ->where('s.tenant_id', Tenant::id())
+            ->selectRaw('s.id, s.sku_code, s.name, s.variant_title, s.category, s.brand, s.image_url, s.cost_price, s.selling_price, s.is_active')
+            ->selectRaw('COALESCE(SUM(DISTINCT i.available), 0) AS stock')
+            ->selectRaw('COALESCE(SUM(r.units_sold), 0) AS units_30d')
+            ->selectRaw('COALESCE(SUM(r.net_sales), 0) AS revenue_30d')
+            ->groupBy('s.id', 's.sku_code', 's.name', 's.variant_title', 's.category', 's.brand', 's.image_url', 's.cost_price', 's.selling_price', 's.is_active')
+            ->first();
+
+        if ($row === null) {
+            return ApiResponse::error('SKU not found.', 404);
+        }
+
+        $dailyRate = round(Num::safeDivide((int) $row->units_30d, 30), 3);
+        $stock = (int) $row->stock;
+        $daysOfCover = $dailyRate > 0 ? round($stock / $dailyRate, 1) : ($stock > 0 ? 999.0 : 0.0);
+        $reorderQty = $dailyRate > 0
+            ? max(0, (int) ceil($dailyRate * ($benchmark->days_of_cover_threshold * 2) - $stock))
+            : 0;
+
+        $costHistory = SkuCostHistory::query()
+            ->where('sku_id', $model->id)
+            ->orderByDesc('effective_from')
+            ->limit(10)
+            ->get()
+            ->map(static fn (SkuCostHistory $entry): array => [
+                'id' => $entry->id,
+                'cost_price' => $entry->cost_price,
+                'effective_from' => $entry->effective_from->toDateString(),
+                'note' => $entry->note,
+            ]);
+
+        return ApiResponse::ok([
+            'sku' => [
+                'sku_id' => $row->id,
+                'sku_code' => $row->sku_code,
+                'name' => $row->name,
+                'variant_title' => $row->variant_title,
+                'category' => $row->category,
+                'brand' => $row->brand,
+                'image_url' => $row->image_url,
+                'is_active' => (bool) $row->is_active,
+                'cost_price' => (int) $row->cost_price,
+                'selling_price' => (int) $row->selling_price,
+                'stock' => $stock,
+                'stock_value' => $stock * (int) $row->cost_price,
+                'units_30d' => (int) $row->units_30d,
+                'daily_rate' => $dailyRate,
+                'days_of_cover' => $daysOfCover,
+                'monthly_revenue' => (int) $row->revenue_30d,
+                'suggested_reorder_qty' => $reorderQty,
+                'margin_pct' => (int) $row->selling_price > 0
+                    ? Num::pct((int) $row->selling_price - (int) $row->cost_price, (int) $row->selling_price)
+                    : null,
+            ],
+            'history' => $restock->history($model->id),
+            'cost_history' => $costHistory->all(),
+        ]);
     }
 
     public function costHistory(int $sku): JsonResponse

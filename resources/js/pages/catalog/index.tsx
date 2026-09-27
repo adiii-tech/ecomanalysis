@@ -1,9 +1,11 @@
 import { Head } from '@inertiajs/react';
+import { useState } from 'react';
 import { AppLayout } from '@/layouts/app-layout';
 import { ChartCard } from '@/components/app/chart-card';
 import { PermissionGuard } from '@/components/app/permission-guard';
 import { DataTable } from '@/components/app/data-table';
 import { BarList } from '@/components/app/bar-list';
+import { SkuDetailDrawer } from '@/components/catalog/sku-detail-drawer';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { CHART_COLORS } from '@/components/charts/chart-primitives';
@@ -30,6 +32,7 @@ interface CoverageRow {
 }
 
 export default function Catalog() {
+    const [openSkuId, setOpenSkuId] = useState<number | null>(null);
     const inventory = useWidget<{ rows: CoverageRow[] }>('operations/inventory');
     const reorder = useWidget<{ rows: CoverageRow[]; dead_stock: CoverageRow[]; caveat: string }>('operations/reorder');
     const stockouts = useWidget<{ rows: (CoverageRow & { days_out_of_stock: number; estimated_lost_revenue: number })[]; total_lost_revenue: number; caveat: string }>('operations/stockouts');
@@ -75,6 +78,7 @@ export default function Catalog() {
                             searchPlaceholder="Search SKU…"
                             rows={reorder.data?.rows ?? []}
                             rowKey={(row) => row.sku_id}
+                            onRowClick={(row) => setOpenSkuId(row.sku_id)}
                             columns={[
                                 { key: 'sku', header: 'SKU', value: (r) => `${r.sku_code} ${r.name}`, render: (r) => (
                                     <div className="min-w-0">
@@ -142,6 +146,7 @@ export default function Catalog() {
                             dense
                             rows={stockouts.data?.rows ?? []}
                             rowKey={(row) => row.sku_id}
+                            onRowClick={(row) => setOpenSkuId(row.sku_id)}
                             columns={[
                                 { key: 'sku', header: 'SKU', value: (r) => r.sku_code, render: (r) => (
                                     <div className="min-w-0">
@@ -174,6 +179,7 @@ export default function Catalog() {
                             dense
                             rows={reorder.data?.dead_stock ?? []}
                             rowKey={(row) => row.sku_id}
+                            onRowClick={(row) => setOpenSkuId(row.sku_id)}
                             columns={[
                                 { key: 'sku', header: 'SKU', value: (r) => r.sku_code, render: (r) => (
                                     <div className="min-w-0">
@@ -207,6 +213,7 @@ export default function Catalog() {
                         rows={inventory.data?.rows ?? []}
                         rowKey={(row) => row.sku_id}
                         initialSort={{ key: 'rev', direction: 'desc' }}
+                        onRowClick={(row) => setOpenSkuId(row.sku_id)}
                         columns={[
                             { key: 'sku', header: 'SKU', value: (r) => `${r.sku_code} ${r.name}`, render: (r) => (
                                 <div className="min-w-0">
@@ -226,6 +233,8 @@ export default function Catalog() {
                     />
                 </ChartCard>
             </PermissionGuard>
+
+            <SkuDetailDrawer skuId={openSkuId} onClose={() => setOpenSkuId(null)} onCostSaved={() => { inventory.reload(); reorder.reload(); }} />
         </AppLayout>
     );
 }

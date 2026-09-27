@@ -268,7 +268,7 @@ it('does not let one order\'s failed transactions call push the cursor past it',
     // Fixing this is the point of the test: the cursor must not leap past #3001.
     Http::fake([
         '*/shop.json' => Http::response(['shop' => ['name' => 'Kaira Living']]),
-        '*/orders/3001/transactions.json' => Http::response(['errors' => 'rate limited'], 429),
+        '*/orders/3001/transactions.json' => Http::response(['errors' => 'forbidden'], 403),
         '*/orders/3002/transactions.json' => Http::response(['transactions' => []]),
     ]);
 
@@ -300,7 +300,7 @@ it('retries the order a failed call skipped, on the next run', function (): void
     Http::fake([
         '*/shop.json' => Http::response(['shop' => ['name' => 'Kaira Living']]),
         '*/orders/4001/transactions.json' => Http::sequence()
-            ->push(['errors' => 'rate limited'], 429)
+            ->push(['errors' => 'forbidden'], 403)
             ->push(['transactions' => [
                 ['id' => 9002, 'gateway' => 'razorpay', 'kind' => 'sale', 'status' => 'success',
                     'amount' => '500.00', 'processed_at' => now()->toIso8601String()],

@@ -216,6 +216,7 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
         Route::get('best-sellers', [CatalogController::class, 'bestSellers'])->middleware('permission.widget:catalog.best_sellers.view')->name('best-sellers');
         Route::get('slow-movers', [CatalogController::class, 'slowMovers'])->middleware('permission.widget:catalog.slow_movers.view')->name('slow-movers');
         Route::get('margin', [CatalogController::class, 'margin'])->middleware('permission.widget:catalog.margin.view')->name('margin');
+        Route::get('skus/{sku}', [CatalogController::class, 'skuDetail'])->whereNumber('sku')->middleware('permission.widget:catalog.products.view')->name('sku-detail');
         Route::get('skus/{sku}/cost-history', [CatalogController::class, 'costHistory'])->middleware('permission.widget:catalog.cost_editor.view')->name('cost-history');
         Route::put('skus/{sku}/cost', [CatalogController::class, 'updateCost'])->middleware('permission.widget:catalog.cost_editor.manage')->name('cost-update');
         Route::post('skus', [CatalogController::class, 'saveSku'])->middleware('permission.widget:catalog.sku_editor.manage')->name('sku-create');
