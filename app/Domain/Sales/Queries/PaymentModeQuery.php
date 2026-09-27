@@ -215,7 +215,7 @@ class PaymentModeQuery
         }
 
         if ($identified === 0) {
-            return 'No prepaid order in this window carries a payment method. Your gateway reports only its own name, or transactions have not synced yet — connect the gateway to split UPI from cards.';
+            return 'No prepaid order in this window has a payment method yet. Transactions sync on their own schedule, separately from orders — a very recent order can take up to an hour to show one. If this is an older window, your gateway may be reporting only its own name. Force a fresh sync from Connectors, or check back shortly.';
         }
 
         $coverage = Num::pct($identified, $totalOrders);

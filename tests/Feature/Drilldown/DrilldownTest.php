@@ -11,6 +11,7 @@ use App\Models\CostSetting;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Sku;
+use App\Models\Transaction;
 use Carbon\CarbonImmutable;
 
 beforeEach(function (): void {
@@ -126,4 +127,80 @@ it('is refused without the orders permission', function (): void {
     $limited = $this->userFor($this->tenant, ['dashboard.kpi_strip.view'], 'ANALYST');
 
     $this->actingAs($limited)->getJson('/api/drilldown/orders')->assertForbidden();
+});
+
+it('says which instrument paid a prepaid order, and shows the raw gateway behind it', function (): void {
+    $order = Order::query()->where('order_number', '#1001')->first();
+
+    Transaction::query()->create([
+        'tenant_id' => $this->tenant->id, 'order_id' => $order->id, 'source' => 'test',
+        'external_id' => 't-'.uniqid(), 'gateway' => 'Razorpay', 'method' => 'UPI', 'kind' => 'sale',
+        'amount' => $order->net_amount, 'fee' => 0, 'status' => 'success', 'processed_at' => $order->placed_at,
+    ]);
+
+    $data = $this->actingAs($this->user)->getJson("/api/drilldown/orders/{$order->id}")->assertOk()->json('data.order');
+
+    expect($data['payment_instrument'])->toBe('UPI')
+        ->and($data['payment_gateway'])->toBe('Razorpay')
+        ->and($data['payment_method'])->toBe('UPI');
+});
+
+it('gives a COD order no instrument to read', function (): void {
+    $order = Order::query()->where('order_number', '#1002')->first();
+
+    $data = $this->actingAs($this->user)->getJson("/api/drilldown/orders/{$order->id}")->assertOk()->json('data.order');
+
+    expect($data['payment_instrument'])->toBeNull()
+        ->and($data['payment_gateway'])->toBeNull();
+});
+
+it('says a prepaid order is unattributed rather than guessing when no transaction synced', function (): void {
+    $order = Order::query()->where('order_number', '#1001')->first();
+
+    $data = $this->actingAs($this->user)->getJson("/api/drilldown/orders/{$order->id}")->assertOk()->json('data.order');
+
+    expect($data['payment_instrument'])->toBe('Not attributed');
+});
+
+it('attributes a split payment to its larger leg, same as the dashboard breakdown', function (): void {
+    $order = Order::query()->where('order_number', '#1001')->first();
+
+    Transaction::query()->create([
+        'tenant_id' => $this->tenant->id, 'order_id' => $order->id, 'source' => 'test',
+        'external_id' => 't-small', 'gateway' => 'Razorpay', 'method' => 'Net Banking', 'kind' => 'sale',
+        'amount' => 20000, 'fee' => 0, 'status' => 'success', 'processed_at' => $order->placed_at,
+    ]);
+    Transaction::query()->create([
+        'tenant_id' => $this->tenant->id, 'order_id' => $order->id, 'source' => 'test',
+        'external_id' => 't-large', 'gateway' => 'Razorpay', 'method' => 'UPI', 'kind' => 'sale',
+        'amount' => 80000, 'fee' => 0, 'status' => 'success', 'processed_at' => $order->placed_at,
+    ]);
+
+    $data = $this->actingAs($this->user)->getJson("/api/drilldown/orders/{$order->id}")->assertOk()->json('data.order');
+
+    expect($data['payment_instrument'])->toBe('UPI');
+});
+
+it('ignores a failed attempt and a refund when reading the instrument', function (): void {
+    $order = Order::query()->where('order_number', '#1001')->first();
+
+    Transaction::query()->create([
+        'tenant_id' => $this->tenant->id, 'order_id' => $order->id, 'source' => 'test',
+        'external_id' => 't-failed', 'gateway' => 'Razorpay', 'method' => 'Credit Card', 'kind' => 'sale',
+        'amount' => $order->net_amount, 'fee' => 0, 'status' => 'failed', 'processed_at' => $order->placed_at,
+    ]);
+    Transaction::query()->create([
+        'tenant_id' => $this->tenant->id, 'order_id' => $order->id, 'source' => 'test',
+        'external_id' => 't-refund', 'gateway' => 'Razorpay', 'method' => 'UPI', 'kind' => 'refund',
+        'amount' => -$order->net_amount, 'fee' => 0, 'status' => 'success', 'processed_at' => $order->placed_at,
+    ]);
+    Transaction::query()->create([
+        'tenant_id' => $this->tenant->id, 'order_id' => $order->id, 'source' => 'test',
+        'external_id' => 't-real', 'gateway' => 'Cashfree', 'method' => 'Wallet', 'kind' => 'sale',
+        'amount' => $order->net_amount, 'fee' => 0, 'status' => 'success', 'processed_at' => $order->placed_at,
+    ]);
+
+    $data = $this->actingAs($this->user)->getJson("/api/drilldown/orders/{$order->id}")->assertOk()->json('data.order');
+
+    expect($data['payment_instrument'])->toBe('Wallets');
 });

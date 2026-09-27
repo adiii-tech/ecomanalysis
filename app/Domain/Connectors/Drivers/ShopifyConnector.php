@@ -451,18 +451,28 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
             ->where('source', 'shopify')
             ->where('payment_mode', PaymentMode::Prepaid)
             ->where('updated_at', '>=', $since)
-            ->orderBy('placed_at')
-            ->limit(500)
-            ->get(['id', 'external_id']);
+            // Oldest-touched first, so a backlog drains in order rather than the
+            // newest 500 orders starving everything behind them every run.
+            ->orderBy('updated_at')
+            ->limit($ctx->pageLimit)
+            ->get(['id', 'external_id', 'updated_at']);
 
         $fetched = 0;
         $upserted = 0;
+        // Only ever advances past an order once its own transactions call has
+        // actually succeeded. The old code moved this to now() unconditionally,
+        // so a single failed per-order request — or a backlog bigger than one
+        // page — silently pushed the cursor past orders that were never read,
+        // and they were never retried again.
+        $cursorAfter = $since;
 
         foreach ($orders as $order) {
             $response = $this->clientFromModel()->get("orders/{$order->external_id}/transactions.json");
 
             if ($response->failed()) {
-                continue;
+                // Stop rather than skip: everything from here on, including this
+                // order, stays behind the cursor and is retried next run.
+                break;
             }
 
             foreach ($response->json('transactions', []) as $txn) {
@@ -485,9 +495,19 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
 
                 $upserted++;
             }
+
+            $cursorAfter = Carbon::parse((string) $order->updated_at);
         }
 
-        return SyncReport::of('transactions', $fetched, $upserted, now()->toIso8601String());
+        // The whole page was read cleanly with room to spare, so nothing is
+        // waiting behind it — safe to jump to now() and pick up only what
+        // changes from here. A full page means there could be more still due,
+        // so the cursor stays at the last order actually read instead.
+        if ($orders->count() < $ctx->pageLimit) {
+            $cursorAfter = CarbonImmutable::now();
+        }
+
+        return SyncReport::of('transactions', $fetched, $upserted, $cursorAfter->toIso8601String());
     }
 
     protected function syncInventory(SyncContext $ctx): SyncReport
