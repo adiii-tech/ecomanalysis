@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\MarketingController;
 use App\Http\Controllers\Api\MarketplaceController;
 use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\OperationsController;
+use App\Http\Controllers\Api\OrdersController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PurchasingController;
 use App\Http\Controllers\Api\ReportController;
@@ -298,6 +299,15 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
         Route::post('orders/{order}/send', [PurchasingController::class, 'sendPurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.send');
         Route::post('orders/{order}/receive', [PurchasingController::class, 'receivePurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.receive');
         Route::post('orders/{order}/cancel', [PurchasingController::class, 'cancelPurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.cancel');
+    });
+
+    /*
+    | The dedicated Orders page. Its own detail view is deliberately absent
+    | here — it opens the same drilldown/orders/{order} below that every
+    | widget's "view orders" already uses, so the two never disagree.
+    */
+    Route::prefix('orders')->name('api.orders.')->middleware('permission.widget:dashboard.recent_orders.view')->group(function (): void {
+        Route::get('/', [OrdersController::class, 'index'])->name('index');
     });
 
     /*

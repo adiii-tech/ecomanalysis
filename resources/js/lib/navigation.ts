@@ -6,6 +6,7 @@ import {
     Camera,
     FileBarChart,
     LayoutDashboard,
+    ListOrdered,
     Megaphone,
     PackagePlus,
     PlugZap,
@@ -37,6 +38,7 @@ export const NAVIGATION: NavSection[] = [
         label: 'Overview',
         items: [
             { label: 'Command Centre', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard.kpi_strip.view' },
+            { label: 'Orders', href: '/orders', icon: ListOrdered, permission: 'dashboard.recent_orders.view' },
             { label: 'Finance', href: '/finance', icon: Wallet, permission: 'finance.kpi_strip.view' },
         ],
     },

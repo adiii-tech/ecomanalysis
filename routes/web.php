@@ -46,6 +46,7 @@ Route::middleware(['auth'])->group(function (): void {
         'marketing' => ['marketing/index', 'marketing.kpi_strip.view'],
         'instagram' => ['instagram/index', 'instagram.kpi_strip.view'],
         'marketplace' => ['marketplace/index', 'marketplace.kpi_strip.view'],
+        'orders' => ['orders/index', 'dashboard.recent_orders.view'],
         'operations' => ['operations/index', 'operations.kpi_strip.view'],
         'catalog' => ['catalog/index', 'catalog.kpi_strip.view'],
         'restock' => ['restock/index', 'catalog.restock.view'],

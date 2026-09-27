@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Domain\Sales\Queries\OrderQuery;
+use App\Domain\Sales\Queries\PaymentModeQuery;
+use App\Domain\Sales\Support\PaymentInstrumentResolver;
+use App\Enums\PaymentInstrument;
+use App\Enums\PaymentMode;
 use App\Http\Controllers\Api\Concerns\ResolvesFilters;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\Order;
+use App\Models\Transaction;
 use App\Support\Facades\Tenant;
 use App\Support\Num;
 use Illuminate\Database\Query\Builder;
@@ -159,11 +164,13 @@ class DrilldownController extends Controller
      */
     public function order(int $order): JsonResponse
     {
-        $model = Order::query()->with(['items', 'channel', 'customer', 'shipments'])->find($order);
+        $model = Order::query()->with(['items', 'channel', 'customer', 'shipments', 'transactions'])->find($order);
 
         if ($model === null) {
             return ApiResponse::error('Order not found.', 404);
         }
+
+        $payment = $this->paymentInstrument($model);
 
         return ApiResponse::ok([
             'order' => [
@@ -172,6 +179,9 @@ class DrilldownController extends Controller
                 'placed_at' => $model->placed_at?->toIso8601String(),
                 'status' => $model->status->label(),
                 'payment_mode' => $model->payment_mode->label(),
+                'payment_instrument' => $payment['label'],
+                'payment_gateway' => $payment['gateway'],
+                'payment_method' => $payment['method'],
                 'channel' => $model->channel?->name,
                 'customer' => $model->customer?->name,
                 'state' => $model->shipping_state,
@@ -201,5 +211,38 @@ class DrilldownController extends Controller
                 'transit_days' => $shipment->transit_days,
             ])->all(),
         ]);
+    }
+
+    /**
+     * How a prepaid order was actually paid — same rule as the dashboard's
+     * "inside prepaid" breakdown ({@see PaymentModeQuery}):
+     * the order's largest successful sale transaction, so a split payment or a
+     * retried capture cannot point at the wrong instrument. COD has no
+     * transaction to read, and a prepaid order still can if the gateway never
+     * synced — both cases say so rather than guessing.
+     *
+     * @return array{label: ?string, gateway: ?string, method: ?string}
+     */
+    private function paymentInstrument(Order $order): array
+    {
+        if ($order->payment_mode !== PaymentMode::Prepaid) {
+            return ['label' => null, 'gateway' => null, 'method' => null];
+        }
+
+        /** @var Transaction|null $transaction */
+        $transaction = $order->transactions
+            ->filter(static fn (Transaction $t): bool => $t->kind === 'sale' && $t->status === 'success')
+            ->sort(static fn (Transaction $a, Transaction $b): int => $b->amount <=> $a->amount ?: $a->id <=> $b->id)
+            ->first();
+
+        if ($transaction === null) {
+            return ['label' => PaymentInstrument::Unattributed->label(), 'gateway' => null, 'method' => null];
+        }
+
+        return [
+            'label' => PaymentInstrumentResolver::resolve($transaction->method, $transaction->gateway)->label(),
+            'gateway' => $transaction->gateway,
+            'method' => $transaction->method,
+        ];
     }
 }

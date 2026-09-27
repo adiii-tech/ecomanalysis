@@ -59,6 +59,48 @@ class OrderQuery
     }
 
     /**
+     * The full order book behind the dedicated Orders page: sorted, optionally
+     * narrowed to one status, capped rather than truly paginated — the same
+     * "many rows, capped, and say so" shape the drilldown drawer already uses,
+     * not a page-through paginator nothing else in this app has.
+     *
+     * @return array<string, mixed>
+     */
+    public function list(WidgetFilters $filters, int $limit = 500, string $sort = 'placed_at', string $direction = 'desc', ?string $status = null): array
+    {
+        $sortable = [
+            'placed_at', 'order_number', 'gross_amount', 'net_amount', 'contribution_margin',
+            'status', 'payment_mode', 'shipping_state', 'units_count',
+        ];
+
+        // Counted over the window before the status filter narrows it, so the
+        // chip for every status keeps its own count rather than collapsing to
+        // whichever one is currently selected.
+        $statusCounts = $this->base($filters)
+            ->selectRaw('status, COUNT(*) AS c')
+            ->groupBy('status')
+            ->pluck('c', 'status')
+            ->map(static fn (mixed $c): int => (int) $c);
+
+        $query = $this->base($filters)->when($status !== null, fn (Builder $q) => $q->where('status', $status));
+        $total = (clone $query)->count();
+
+        $rows = $query
+            ->orderBy(in_array($sort, $sortable, true) ? $sort : 'placed_at', $direction === 'asc' ? 'asc' : 'desc')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Order $order): array => $this->row($order));
+
+        return [
+            'rows' => $rows->all(),
+            'total' => $total,
+            'shown' => $rows->count(),
+            'truncated' => $total > $rows->count(),
+            'status_counts' => $statusCounts->all(),
+        ];
+    }
+
+    /**
      * Orders that lost money, worst first.
      *
      * @return array<string, mixed>
