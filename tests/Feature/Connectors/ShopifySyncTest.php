@@ -220,7 +220,7 @@ it('reads a synced prepaid order\'s transactions and books them', function (): v
         '*/shop.json' => Http::response(['shop' => ['name' => 'Kaira Living']]),
         '*/orders/2001/transactions.json' => Http::response(['transactions' => [
             ['id' => 9001, 'gateway' => 'razorpay', 'kind' => 'sale', 'status' => 'success',
-                'amount' => '1000.00', 'processed_at' => '2026-08-20T10:05:00+05:30',
+                'amount' => '1000.00', 'processed_at' => now()->toIso8601String(),
                 'payment_details' => ['credit_card_company' => null]],
         ]]),
     ]);
@@ -231,8 +231,8 @@ it('reads a synced prepaid order\'s transactions and books them', function (): v
 
     $order = Order::query()->create([
         'tenant_id' => $this->tenant->id, 'source' => 'shopify', 'external_id' => '2001',
-        'order_number' => '#2001', 'placed_at' => '2026-08-20 10:00:00', 'status' => OrderStatus::Delivered,
-        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => '2026-08-20 10:05:00',
+        'order_number' => '#2001', 'placed_at' => now()->subDays(2), 'status' => OrderStatus::Delivered,
+        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => now()->subDays(2),
     ]);
 
     $report = app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'transactions', 'manual');
@@ -254,8 +254,8 @@ it('never asks a COD order for its transactions', function (): void {
 
     Order::query()->create([
         'tenant_id' => $this->tenant->id, 'source' => 'shopify', 'external_id' => '2002',
-        'order_number' => '#2002', 'placed_at' => '2026-08-20 10:00:00', 'status' => OrderStatus::Delivered,
-        'payment_mode' => PaymentMode::Cod, 'updated_at' => '2026-08-20 10:05:00',
+        'order_number' => '#2002', 'placed_at' => now()->subDays(2), 'status' => OrderStatus::Delivered,
+        'payment_mode' => PaymentMode::Cod, 'updated_at' => now()->subDays(2),
     ]);
 
     app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'transactions', 'manual');
@@ -278,22 +278,22 @@ it('does not let one order\'s failed transactions call push the cursor past it',
 
     Order::query()->create([
         'tenant_id' => $this->tenant->id, 'source' => 'shopify', 'external_id' => '3001',
-        'order_number' => '#3001', 'placed_at' => '2026-08-20 10:00:00', 'status' => OrderStatus::Delivered,
-        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => '2026-08-20 10:00:00',
+        'order_number' => '#3001', 'placed_at' => now()->subDays(3), 'status' => OrderStatus::Delivered,
+        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => now()->subDays(3),
     ]);
     Order::query()->create([
         'tenant_id' => $this->tenant->id, 'source' => 'shopify', 'external_id' => '3002',
-        'order_number' => '#3002', 'placed_at' => '2026-08-21 10:00:00', 'status' => OrderStatus::Delivered,
-        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => '2026-08-21 10:00:00',
+        'order_number' => '#3002', 'placed_at' => now()->subDays(1), 'status' => OrderStatus::Delivered,
+        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => now()->subDays(1),
     ]);
 
     app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'transactions', 'manual');
 
     $connector = Connector::query()->where('connector_id', 'shopify')->firstOrFail();
+    $cursorAfter = CarbonImmutable::parse((string) $connector->cursorFor('transactions'));
     // The cursor sits at (or before) #3001's own updated_at, so the very next
     // run asks for #3001 again instead of treating it as already handled.
-    expect(CarbonImmutable::parse((string) $connector->cursorFor('transactions')))
-        ->toBeLessThanOrEqualTo(CarbonImmutable::parse('2026-08-20 10:00:00'));
+    expect($cursorAfter->lessThanOrEqualTo(now()->subDays(3)))->toBeTrue();
 });
 
 it('retries the order a failed call skipped, on the next run', function (): void {
@@ -303,7 +303,7 @@ it('retries the order a failed call skipped, on the next run', function (): void
             ->push(['errors' => 'rate limited'], 429)
             ->push(['transactions' => [
                 ['id' => 9002, 'gateway' => 'razorpay', 'kind' => 'sale', 'status' => 'success',
-                    'amount' => '500.00', 'processed_at' => '2026-08-20T10:05:00+05:30'],
+                    'amount' => '500.00', 'processed_at' => now()->toIso8601String()],
             ]]),
     ]);
 
@@ -313,8 +313,8 @@ it('retries the order a failed call skipped, on the next run', function (): void
 
     $order = Order::query()->create([
         'tenant_id' => $this->tenant->id, 'source' => 'shopify', 'external_id' => '4001',
-        'order_number' => '#4001', 'placed_at' => '2026-08-20 10:00:00', 'status' => OrderStatus::Delivered,
-        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => '2026-08-20 10:00:00',
+        'order_number' => '#4001', 'placed_at' => now()->subDays(2), 'status' => OrderStatus::Delivered,
+        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => now()->subDays(2),
     ]);
 
     app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'transactions', 'manual');
@@ -336,47 +336,15 @@ it('jumps the cursor to now once every due order is read cleanly', function (): 
 
     Order::query()->create([
         'tenant_id' => $this->tenant->id, 'source' => 'shopify', 'external_id' => '5001',
-        'order_number' => '#5001', 'placed_at' => '2026-08-20 10:00:00', 'status' => OrderStatus::Delivered,
-        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => '2026-08-20 10:00:00',
+        'order_number' => '#5001', 'placed_at' => now()->subDays(2), 'status' => OrderStatus::Delivered,
+        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => now()->subDays(2),
     ]);
 
     app(RunConnectorSync::class)->handle($this->tenant, 'shopify', 'transactions', 'manual');
 
     $connector = Connector::query()->where('connector_id', 'shopify')->firstOrFail();
-    // Not left sitting at 2026-08-20 — a clean run with room to spare in the
+    $cursorAfter = CarbonImmutable::parse((string) $connector->cursorFor('transactions'));
+    // Not left sitting two days back — a clean run with room to spare in the
     // page can safely fast-forward past today's new arrivals too.
-    expect(CarbonImmutable::parse((string) $connector->cursorFor('transactions'))->year)->toBe(now()->year);
-});
-
-it('debug', function (): void {
-    $tenant = $this->tenant();
-
-    Http::fake([
-        '*/shop.json' => Http::response(['shop' => ['name' => 'Kaira Living']]),
-        '*/orders/2001/transactions.json' => Http::response(['transactions' => [
-            ['id' => 9001, 'gateway' => 'razorpay', 'kind' => 'sale', 'status' => 'success',
-                'amount' => '1000.00', 'processed_at' => '2026-08-20T10:05:00+05:30'],
-        ]]),
-    ]);
-
-    app(ConnectConnector::class)->handle($tenant, 'shopify', [
-        'shop_domain' => 'kaira.myshopify.com', 'access_token' => 'shpat_test',
-    ]);
-
-    $connector = Connector::query()->where('connector_id', 'shopify')->first();
-    dump(['cursor_before' => $connector->cursorFor('transactions')]);
-
-    $order = Order::query()->create([
-        'tenant_id' => $tenant->id, 'source' => 'shopify', 'external_id' => '2001',
-        'order_number' => '#2001', 'placed_at' => '2026-08-20 10:00:00', 'status' => OrderStatus::Delivered,
-        'payment_mode' => PaymentMode::Prepaid, 'updated_at' => '2026-08-20 10:05:00',
-    ]);
-    dump(['order_id' => $order->id, 'updated_at_saved' => $order->fresh()->updated_at, 'external_id' => $order->external_id, 'payment_mode' => $order->payment_mode, 'source' => $order->source]);
-
-    $report = app(RunConnectorSync::class)->handle($tenant, 'shopify', 'transactions', 'manual');
-    dump(['report_ok' => $report->ok(), 'fetched' => $report->fetched, 'upserted' => $report->upserted, 'error' => $report->error, 'cursorAfter' => $report->cursorAfter]);
-
-    dump(['txn_count' => Transaction::query()->count()]);
-
-    expect(true)->toBeTrue();
+    expect($cursorAfter->greaterThan(now()->subHour()))->toBeTrue();
 });

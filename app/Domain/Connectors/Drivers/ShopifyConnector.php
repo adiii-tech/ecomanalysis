@@ -465,6 +465,7 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
         // page — silently pushed the cursor past orders that were never read,
         // and they were never retried again.
         $cursorAfter = $since;
+        $readEveryOrder = true;
 
         foreach ($orders as $order) {
             $response = $this->clientFromModel()->get("orders/{$order->external_id}/transactions.json");
@@ -472,6 +473,8 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
             if ($response->failed()) {
                 // Stop rather than skip: everything from here on, including this
                 // order, stays behind the cursor and is retried next run.
+                $readEveryOrder = false;
+
                 break;
             }
 
@@ -501,9 +504,11 @@ class ShopifyConnector extends AbstractConnector implements SupportsOAuth
 
         // The whole page was read cleanly with room to spare, so nothing is
         // waiting behind it — safe to jump to now() and pick up only what
-        // changes from here. A full page means there could be more still due,
-        // so the cursor stays at the last order actually read instead.
-        if ($orders->count() < $ctx->pageLimit) {
+        // changes from here. A break above, or a full page that could still
+        // have more behind it, both leave the cursor at the last order
+        // actually read instead — $orders->count() alone can't tell those
+        // apart, since it is fixed before the loop ever runs.
+        if ($readEveryOrder && $orders->count() < $ctx->pageLimit) {
             $cursorAfter = CarbonImmutable::now();
         }
 
