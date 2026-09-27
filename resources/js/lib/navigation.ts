@@ -10,6 +10,7 @@ import {
     PackagePlus,
     PlugZap,
     Settings,
+    ShoppingCart,
     Sparkles,
     Store,
     Truck,
@@ -55,6 +56,7 @@ export const NAVIGATION: NavSection[] = [
             { label: 'Catalog', href: '/catalog', icon: Boxes, permission: 'catalog.kpi_strip.view' },
             { label: 'Inventory', href: '/inventory', icon: Warehouse, permission: 'catalog.stock.view' },
             { label: 'Restock', href: '/restock', icon: PackagePlus, permission: 'catalog.restock.view' },
+            { label: 'Purchasing', href: '/inventory/purchasing', icon: ShoppingCart, permission: 'catalog.purchase_orders.view' },
         ],
     },
     {

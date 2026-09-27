@@ -10,7 +10,7 @@ import {
     Sun,
     User as UserIcon,
 } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -53,6 +53,17 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
     const { url, props } = usePage<SharedProps>();
     const { can } = usePermissions();
 
+    // The longest matching href wins, so a nested page like /inventory/purchasing
+    // highlights only "Purchasing" and not "Inventory" underneath it too.
+    const activeNavHref = useMemo(
+        () =>
+            NAVIGATION.flatMap((section) => section.items)
+                .map((item) => item.href)
+                .filter((href) => url.startsWith(href))
+                .sort((a, b) => b.length - a.length)[0],
+        [url],
+    );
+
     return (
         <aside
             className={cn(
@@ -85,7 +96,7 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
                                 </p>
                             )}
                             {items.map((item) => {
-                                const active = url.startsWith(item.href);
+                                const active = item.href === activeNavHref;
                                 return (
                                     <Link
                                         key={item.href}
