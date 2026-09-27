@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Domain\Inventory\Actions\IssuePurchaseOrders;
 use App\Domain\Inventory\Actions\ReceivePurchaseOrder;
 use App\Domain\Inventory\Queries\StockQuery;
 use App\Domain\Inventory\Services\CostAverager;
@@ -13,6 +14,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Inventory;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
+use App\Models\Sku;
 use App\Models\Supplier;
 use App\Support\Facades\Tenant;
 use App\Support\Money;
@@ -320,6 +322,65 @@ class PurchasingController extends Controller
         return ApiResponse::ok($result, message: sprintf(
             '%d units booked in across %d lines. Costs re-averaged at the landed price.',
             $result['received'], $result['lines'],
+        ));
+    }
+
+    /**
+     * Restock's "Issue PO" action: one or more supplier-grouped selections,
+     * each becoming a purchase order that is created and sent in the same
+     * request. See {@see IssuePurchaseOrders} for why there is no draft step.
+     */
+    public function issueFromRestock(Request $request, IssuePurchaseOrders $issue): JsonResponse
+    {
+        $validated = $request->validate([
+            'groups' => ['required', 'array', 'min:1', 'max:50'],
+            'groups.*.supplier_id' => ['required', 'integer'],
+            'groups.*.expected_at' => ['nullable', 'date'],
+            'groups.*.items' => ['required', 'array', 'min:1', 'max:500'],
+            'groups.*.items.*.sku_id' => ['required', 'integer'],
+            'groups.*.items.*.quantity' => ['required', 'integer', 'min:1'],
+            'groups.*.items.*.unit_cost' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        // exists:suppliers,id / exists:skus,id would query the tables directly
+        // and skip the BelongsToTenant scope, so a stray id could reach across
+        // tenants. Checked through the model instead, which cannot.
+        $supplierIds = Supplier::query()->whereIn('id', array_column($validated['groups'], 'supplier_id'))->pluck('id');
+        $skuIds = Sku::query()->whereIn('id', collect($validated['groups'])->pluck('items.*.sku_id')->flatten())->pluck('id');
+
+        foreach ($validated['groups'] as $group) {
+            if (! $supplierIds->contains($group['supplier_id'])) {
+                return ApiResponse::error('One of the selected suppliers could not be found.', 422);
+            }
+
+            foreach ($group['items'] as $line) {
+                if (! $skuIds->contains($line['sku_id'])) {
+                    return ApiResponse::error('One of the selected products could not be found.', 422);
+                }
+            }
+        }
+
+        $groups = array_map(static fn (array $group): array => [
+            'supplier_id' => (int) $group['supplier_id'],
+            'expected_at' => $group['expected_at'] ?? null,
+            'items' => array_map(static fn (array $line): array => [
+                'sku_id' => (int) $line['sku_id'],
+                'quantity' => (int) $line['quantity'],
+                'unit_cost' => Money::fromRupees((float) $line['unit_cost']),
+            ], $group['items']),
+        ], $validated['groups']);
+
+        $orders = $issue->handle($groups);
+
+        foreach ($orders as $order) {
+            activity('inventory')->withProperties($order)->log('purchase_order.issued_from_restock');
+        }
+
+        return ApiResponse::ok(['orders' => $orders], message: sprintf(
+            '%d purchase order%s issued — %s.',
+            count($orders),
+            count($orders) === 1 ? '' : 's',
+            implode(', ', array_column($orders, 'po_number')),
         ));
     }
 

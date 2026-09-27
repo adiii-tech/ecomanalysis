@@ -293,6 +293,7 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
         Route::get('orders/suggestions', [PurchasingController::class, 'suggestions'])->middleware('permission.widget:catalog.purchase_orders.view')->name('suggestions');
         Route::get('orders/{order}', [PurchasingController::class, 'purchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.view')->name('orders.show');
         Route::post('orders', [PurchasingController::class, 'savePurchaseOrder'])->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.store');
+        Route::post('orders/issue', [PurchasingController::class, 'issueFromRestock'])->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.issue');
         Route::put('orders/{order}', [PurchasingController::class, 'savePurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.update');
         Route::post('orders/{order}/send', [PurchasingController::class, 'sendPurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.send');
         Route::post('orders/{order}/receive', [PurchasingController::class, 'receivePurchaseOrder'])->whereNumber('order')->middleware('permission.widget:catalog.purchase_orders.manage')->name('orders.receive');

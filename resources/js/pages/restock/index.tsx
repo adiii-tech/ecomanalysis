@@ -1,11 +1,12 @@
 import { Head } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, FileImage, RefreshCw, RotateCcw } from 'lucide-react';
+import { Download, FileImage, RefreshCw, RotateCcw, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppLayout } from '@/layouts/app-layout';
 import { ChartCard } from '@/components/app/chart-card';
 import { PermissionGuard } from '@/components/app/permission-guard';
 import { DataTable, type Column } from '@/components/app/data-table';
+import { IssuePoDialog } from '@/components/restock/issue-po-dialog';
 import { PoColumnPicker } from '@/components/restock/po-column-picker';
 import { SkuDrawer } from '@/components/restock/sku-drawer';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +63,7 @@ export default function Restock() {
     const [poQty, setPoQty] = useState<Record<number, number>>({});
     const [poColumns, setPoColumns] = useState<string[]>(() => loadPoColumns());
     const [openSku, setOpenSku] = useState<number | null>(null);
+    const [issuing, setIssuing] = useState(false);
 
     const load = useCallback(() => {
         setLoading(true);
@@ -665,6 +667,16 @@ export default function Restock() {
                                 <FileImage className="size-3" />
                                 PO with photos
                             </Button>
+                            <PermissionGuard permission="catalog.purchase_orders.manage">
+                                <Button
+                                    size="xs"
+                                    className="bg-good text-white hover:bg-good/90"
+                                    onClick={() => requirePoLines() && setIssuing(true)}
+                                >
+                                    <Send className="size-3" />
+                                    Issue PO ({formatNumber(po.lines.length)})
+                                </Button>
+                            </PermissionGuard>
                         </div>
                     </div>
 
@@ -679,6 +691,19 @@ export default function Restock() {
                     onToggleInclude={togglePo}
                     onQuantity={setQty}
                     onClose={() => setOpenSku(null)}
+                />
+
+                <IssuePoDialog
+                    open={issuing}
+                    lines={po.lines}
+                    onOpenChange={setIssuing}
+                    onIssued={() => {
+                        // Issued lines are now on order — clear them from the
+                        // selection and pull fresh incoming/cover figures.
+                        setPoInclude({});
+                        setPoQty({});
+                        load();
+                    }}
                 />
             </PermissionGuard>
         </AppLayout>

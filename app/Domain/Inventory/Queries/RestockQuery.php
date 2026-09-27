@@ -219,7 +219,7 @@ class RestockQuery
             ->leftJoin('suppliers as sup', 'sup.id', '=', 's.supplier_id')
             ->where('s.tenant_id', Tenant::id())
             ->where('s.is_active', true)
-            ->selectRaw('s.id, s.sku_code, s.name, s.variant_title, s.category, s.brand, s.image_url')
+            ->selectRaw('s.id, s.sku_code, s.name, s.variant_title, s.category, s.brand, s.image_url, s.supplier_id')
             ->selectRaw('s.cost_price, s.selling_price, s.is_combo, s.tracks_inventory')
             ->selectRaw("COALESCE(NULLIF(p.product_type, ''), NULLIF(s.category, ''), 'Uncategorised') AS type")
             ->selectRaw('p.published_at, p.status AS product_status, sup.name AS supplier_name')
@@ -326,6 +326,7 @@ class RestockQuery
                     'name' => (string) $sku->name,
                     'variant_title' => $sku->variant_title,
                     'type' => (string) $sku->type,
+                    'supplier_id' => $sku->supplier_id !== null ? (int) $sku->supplier_id : null,
                     'supplier_name' => $sku->supplier_name,
                     'product_status' => $sku->product_status,
                     'image_url' => $sku->image_url,

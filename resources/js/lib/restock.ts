@@ -13,6 +13,7 @@ export interface RestockRow {
     name: string;
     variant_title: string | null;
     type: string;
+    supplier_id: number | null;
     supplier_name: string | null;
     product_status: string | null;
     image_url: string | null;
@@ -245,6 +246,38 @@ export interface PoLine {
     value: number;
     /** null when no budget is set, otherwise whether the line fits under it. */
     withinBudget: boolean | null;
+}
+
+export interface PoLineGroup {
+    /** null is its own group — the lines whose SKU has no supplier assigned yet. */
+    supplierId: number | null;
+    lines: PoLine[];
+    value: number;
+}
+
+/**
+ * The order split the way it will actually be issued: one purchase order per
+ * supplier, because that is the unit a supplier can receive as a single
+ * shipment. Lines with no supplier on the SKU fall into their own group so the
+ * issue dialog can ask for one rather than silently guessing.
+ */
+export function groupPoLinesBySupplier(lines: PoLine[]): PoLineGroup[] {
+    const order: (number | null)[] = [];
+    const groups = new Map<number | null, PoLine[]>();
+
+    for (const line of lines) {
+        const key = line.row.supplier_id;
+        if (!groups.has(key)) {
+            order.push(key);
+            groups.set(key, []);
+        }
+        groups.get(key)!.push(line);
+    }
+
+    return order.map((supplierId) => {
+        const groupLines = groups.get(supplierId)!;
+        return { supplierId, lines: groupLines, value: groupLines.reduce((sum, line) => sum + line.value, 0) };
+    });
 }
 
 /**
