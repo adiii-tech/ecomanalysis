@@ -640,6 +640,11 @@ class AdminController extends Controller
 
         activity('admin')->log('backup.downloaded');
 
+        // A large tenant can take longer to dump than PHP's default
+        // max_execution_time allows — the exporter itself streams in bounded
+        // chunks, so the only remaining ceiling to lift is this one.
+        set_time_limit(0);
+
         return response()->streamDownload(function () use ($exporter, $tenant): void {
             $handle = fopen('php://output', 'wb');
             $exporter->export($tenant, $handle);
