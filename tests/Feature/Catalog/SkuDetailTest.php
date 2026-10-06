@@ -50,10 +50,47 @@ it('carries the last twelve months of sales alongside the current numbers', func
         'net_sales' => Money::fromRupees(3000), 'computed_at' => now(), 'created_at' => now(), 'updated_at' => now(),
     ]);
 
+    // Lifetime reads orders directly rather than the rollup, so it needs its
+    // own real order behind it — see the next test for exactly why.
+    $orderId = DB::table('orders')->insertGetId([
+        'tenant_id' => $this->tenant->id, 'source' => 'test', 'external_id' => 'o-'.uniqid(),
+        'order_number' => '#'.uniqid(), 'placed_at' => now()->subDays(5), 'status' => 'delivered',
+        'payment_mode' => 'prepaid', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    DB::table('order_items')->insert([
+        'tenant_id' => $this->tenant->id, 'order_id' => $orderId, 'sku_id' => $this->sku->id,
+        'sku_code' => $this->sku->sku_code, 'qty' => 3, 'unit_price' => Money::fromRupees(1000),
+        'line_net' => Money::fromRupees(3000), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
     $data = ($this->detail)();
 
     expect($data['history']['months'])->toHaveCount(12)
         ->and($data['history']['lifetime_units'])->toBe(3);
+});
+
+it('counts a SKU\'s lifetime sales and returns from orders older than the rollup keeps', function (): void {
+    // sku_daily_rollup only ever covers 730 days back, even at its widest
+    // (RebuildRollups' nightly full rebuild) — an order from before that must
+    // still count toward "lifetime," which is the whole point of this field.
+    $orderId = DB::table('orders')->insertGetId([
+        'tenant_id' => $this->tenant->id, 'source' => 'test', 'external_id' => 'ancient-1',
+        'order_number' => '#ancient-1', 'placed_at' => now()->subDays(900), 'status' => 'delivered',
+        'payment_mode' => 'prepaid', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    DB::table('order_items')->insert([
+        'tenant_id' => $this->tenant->id, 'order_id' => $orderId, 'sku_id' => $this->sku->id,
+        'sku_code' => $this->sku->sku_code, 'qty' => 4, 'returned_qty' => 1, 'unit_price' => Money::fromRupees(1000),
+        'line_net' => Money::fromRupees(4000), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $data = ($this->detail)();
+
+    // No sku_daily_rollup row exists for this SKU at all — the rollup has
+    // nothing this old — yet the order alone must still be counted.
+    expect($data['history']['lifetime_units'])->toBe(3)
+        ->and($data['history']['returns_lifetime'])->toBe(1)
+        ->and($data['history']['first_sale'])->toBe(now()->subDays(900)->toDateString());
 });
 
 it('shows the cost history behind the current cost, newest first', function (): void {

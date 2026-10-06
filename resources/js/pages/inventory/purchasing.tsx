@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { Check, Loader2, PackageCheck, Plus, Send, Trash2, TriangleAlert, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Circle, CircleCheck, Loader2, PackageCheck, Plus, Send, Trash2, TriangleAlert, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppLayout } from '@/layouts/app-layout';
@@ -81,6 +81,8 @@ interface OrderDetail {
     }[];
 }
 
+type OrderItemRow = OrderDetail['items'][number];
+
 interface SuggestionGroup {
     supplier: string;
     skus: number;
@@ -106,6 +108,8 @@ export default function Purchasing() {
     const [error, setError] = useState<string | null>(null);
     const [detail, setDetail] = useState<OrderDetail | null>(null);
     const [composing, setComposing] = useState(false);
+    const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+    const [itemsByOrder, setItemsByOrder] = useState<Record<number, OrderItemRow[] | 'loading' | 'error'>>({});
 
     const load = useCallback(() => {
         apiGet<{ rows: OrderRow[]; summary: Record<string, number>; verdict: Verdict | null }>('/purchasing/orders')
@@ -132,7 +136,47 @@ export default function Purchasing() {
         }
     };
 
+    /**
+     * Expands a row in place to show what each line item on that PO actually
+     * has and has not arrived — the list otherwise only carries a line count
+     * and one status for the whole order. Items are fetched once per order and
+     * cached, so re-collapsing and re-opening a row never re-fetches it.
+     */
+    const toggleExpand = (id: number) => {
+        setExpandedIds((current) => {
+            const next = new Set(current);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+
+        if (itemsByOrder[id] !== undefined) return;
+
+        setItemsByOrder((current) => ({ ...current, [id]: 'loading' }));
+        apiGet<OrderDetail>(`/purchasing/orders/${id}`)
+            .then((response) => setItemsByOrder((current) => ({ ...current, [id]: response.data.items })))
+            .catch(() => setItemsByOrder((current) => ({ ...current, [id]: 'error' })));
+    };
+
     const orderColumns: Column<OrderRow>[] = [
+        {
+            key: 'expand',
+            header: '',
+            width: '28px',
+            render: (row) => (
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        toggleExpand(row.id);
+                    }}
+                    aria-label={expandedIds.has(row.id) ? `Hide products on ${row.po_number}` : `Show products on ${row.po_number}`}
+                    className="text-muted-foreground transition hover:text-foreground"
+                >
+                    {expandedIds.has(row.id) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                </button>
+            ),
+        },
         {
             key: 'po_number',
             header: 'PO',
@@ -216,7 +260,15 @@ export default function Purchasing() {
 
                     {tab === 'orders' && (
                         <ChartCard title="Purchase orders" subtitle="Newest first" bodyClassName="p-0" empty={orders.rows.length === 0}>
-                            <DataTable columns={orderColumns} rows={orders.rows} searchable rowKey={(row) => row.id} dense />
+                            <DataTable
+                                columns={orderColumns}
+                                rows={orders.rows}
+                                searchable
+                                rowKey={(row) => row.id}
+                                dense
+                                isRowExpanded={(row) => expandedIds.has(row.id)}
+                                renderExpanded={(row) => <PoItemsPreview items={itemsByOrder[row.id]} onViewAll={() => openOrder(row.id)} />}
+                            />
                         </ChartCard>
                     )}
 
@@ -256,9 +308,74 @@ export default function Purchasing() {
                 </>
             )}
 
-            <OrderSheet detail={detail} onClose={() => setDetail(null)} onChanged={() => { load(); setDetail(null); }} />
+            <OrderSheet
+                detail={detail}
+                onClose={() => setDetail(null)}
+                onChanged={() => {
+                    // A row's expanded item list would otherwise still show
+                    // pre-receive quantities after this exact order changed.
+                    if (detail) {
+                        setItemsByOrder((current) => {
+                            const { [detail.order.id]: _stale, ...rest } = current;
+                            return rest;
+                        });
+                    }
+                    load();
+                    setDetail(null);
+                }}
+            />
             <ComposeSheet open={composing} suppliers={suppliers ?? []} onOpenChange={setComposing} onSaved={load} />
         </AppLayout>
+    );
+}
+
+/**
+ * What a PO's row expands into: every line item, and whether it has fully
+ * arrived — the exact thing the list row above it cannot show on its own,
+ * since one status badge speaks for the whole order.
+ */
+function PoItemsPreview({ items, onViewAll }: { items: OrderItemRow[] | 'loading' | 'error' | undefined; onViewAll: () => void }) {
+    if (items === 'loading' || items === undefined) {
+        return <p className="px-1 py-1 text-[11px] text-muted-foreground">Loading products…</p>;
+    }
+
+    if (items === 'error') {
+        return <p className="px-1 py-1 text-[11px] text-bad">Could not load the products on this order.</p>;
+    }
+
+    if (items.length === 0) {
+        return <p className="px-1 py-1 text-[11px] text-muted-foreground">No line items on this order.</p>;
+    }
+
+    return (
+        <div className="space-y-1 px-1 py-0.5">
+            {items.map((item) => {
+                const fullyIn = item.outstanding <= 0;
+
+                return (
+                    <div key={item.id} className="flex items-center gap-2 text-xs">
+                        {fullyIn ? (
+                            <CircleCheck className="size-3.5 shrink-0 text-good" />
+                        ) : (
+                            <Circle className={cn('size-3.5 shrink-0', item.quantity_received > 0 ? 'text-warn' : 'text-muted-foreground')} />
+                        )}
+                        <span className="w-24 shrink-0 truncate font-medium">{item.sku_code}</span>
+                        <span className="min-w-0 flex-1 truncate text-muted-foreground">{item.name}</span>
+                        <span className="tnum shrink-0">
+                            {formatNumber(item.quantity_received)}/{formatNumber(item.quantity_ordered)} received
+                        </span>
+                        {!fullyIn && (
+                            <span className={cn('shrink-0 text-[11px]', item.quantity_received > 0 ? 'text-warn' : 'text-muted-foreground')}>
+                                ← {item.quantity_received > 0 ? `${formatNumber(item.outstanding)} pending` : 'pending'}
+                            </span>
+                        )}
+                    </div>
+                );
+            })}
+            <button type="button" onClick={onViewAll} className="pt-1 text-[11px] font-medium text-primary hover:underline">
+                Open full order →
+            </button>
+        </div>
     );
 }
 

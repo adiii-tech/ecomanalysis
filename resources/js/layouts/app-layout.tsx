@@ -67,7 +67,7 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
     return (
         <aside
             className={cn(
-                'hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 lg:flex',
+                'hidden h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 lg:flex',
                 collapsed ? 'w-[62px]' : 'w-[228px]',
             )}
         >
@@ -241,10 +241,10 @@ export function AppLayout({
 
     return (
         <>
-            <div className="flex min-h-screen bg-background">
+            <div className="flex h-screen overflow-hidden bg-background">
                     <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
 
-                    <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
                         <DemoBanner />
 
                         <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">

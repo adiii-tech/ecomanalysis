@@ -1,9 +1,11 @@
-import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Search } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SkeletonTable } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { EmptyState } from '@/components/app/empty-state';
+import { formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 export interface Column<T> {
@@ -35,6 +37,9 @@ export function DataTable<T>({
     maxHeight,
     dense = false,
     footer,
+    pageSize = 25,
+    isRowExpanded,
+    renderExpanded,
 }: {
     columns: Column<T>[];
     rows: T[] | null;
@@ -50,9 +55,16 @@ export function DataTable<T>({
     maxHeight?: string;
     dense?: boolean;
     footer?: ReactNode;
+    /** Rows per page. Pagination only appears once there is more than one page. */
+    pageSize?: number;
+    /** Expansion state lives with the caller; this only asks whether to render it for a given row. */
+    isRowExpanded?: (row: T) => boolean;
+    /** A full-width row inserted right after a row isRowExpanded says is open. */
+    renderExpanded?: (row: T) => ReactNode;
 }) {
     const [sort, setSort] = useState(initialSort ?? null);
     const [query, setQuery] = useState('');
+    const [page, setPage] = useState(1);
 
     const processed = useMemo(() => {
         let result = rows ?? [];
@@ -84,6 +96,23 @@ export function DataTable<T>({
 
         return result;
     }, [rows, columns, sort, query]);
+
+    const totalPages = Math.max(1, Math.ceil(processed.length / pageSize));
+    // A new search term or sort starts back at the top of the results, rather
+    // than staying on whatever page number happened to be showing — page 3 of
+    // an unfiltered table is rarely page 3 of a search for something else.
+    // Plain useEffect, not layout: this app renders server-side, and
+    // useLayoutEffect warns there since it cannot run on the server at all.
+    useEffect(() => setPage(1), [query, sort, rows]);
+    // Clamped at render time rather than waiting on the effect above, so a
+    // row count that shrinks (a search, a reload) can never render a page
+    // past the end of the data — no empty table that still claims to have
+    // rows — even for the one paint before that effect has run.
+    const currentPage = Math.min(page, totalPages);
+    const pageRows = useMemo(
+        () => processed.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+        [processed, currentPage, pageSize],
+    );
 
     function toggleSort(key: string) {
         setSort((current) =>
@@ -164,34 +193,87 @@ export function DataTable<T>({
                             </tr>
                         </thead>
                         <tbody>
-                            {processed.map((row, index) => (
-                                <tr
-                                    key={rowKey(row, index)}
-                                    onClick={onRowClick ? () => onRowClick(row) : undefined}
-                                    className={cn(
-                                        'border-b border-border/60 transition-colors last:border-0',
-                                        onRowClick && 'cursor-pointer hover:bg-accent/50',
-                                    )}
-                                >
-                                    {columns.map((column) => (
-                                        <td
-                                            key={column.key}
+                            {pageRows.map((row, pageIndex) => {
+                                // The row's position in the full filtered/sorted
+                                // list, not just within this page — so a column
+                                // that numbers rows keeps counting past page 1.
+                                const index = (currentPage - 1) * pageSize + pageIndex;
+
+                                const expanded = isRowExpanded?.(row) ?? false;
+                                const key = rowKey(row, index);
+
+                                return (
+                                    <Fragment key={key}>
+                                        <tr
+                                            onClick={onRowClick ? () => onRowClick(row) : undefined}
                                             className={cn(
-                                                'px-2.5 align-middle',
-                                                dense ? 'py-1.5' : 'py-2.5',
-                                                column.align === 'right' && 'text-right tnum',
-                                                column.align === 'center' && 'text-center',
-                                                column.className,
+                                                'border-b border-border/60 transition-colors',
+                                                !expanded && 'last:border-0',
+                                                onRowClick && 'cursor-pointer hover:bg-accent/50',
                                             )}
                                         >
-                                            {column.render(row, index)}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
+                                            {columns.map((column) => (
+                                                <td
+                                                    key={column.key}
+                                                    className={cn(
+                                                        'px-2.5 align-middle',
+                                                        dense ? 'py-1.5' : 'py-2.5',
+                                                        column.align === 'right' && 'text-right tnum',
+                                                        column.align === 'center' && 'text-center',
+                                                        column.className,
+                                                    )}
+                                                >
+                                                    {column.render(row, index)}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        {expanded && renderExpanded && (
+                                            <tr className="border-b border-border/60 bg-muted/20 last:border-0">
+                                                <td colSpan={columns.length} className="px-2.5 py-2">
+                                                    {renderExpanded(row)}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
                         </tbody>
                         {footer && <tfoot className="border-t-2 border-border bg-muted/40">{footer}</tfoot>}
                     </table>
+                </div>
+            )}
+
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between gap-3 border-t border-border pt-2 text-[11px] text-muted-foreground">
+                    <span className="tnum">
+                        {formatNumber(Math.min((currentPage - 1) * pageSize + 1, processed.length))}–{formatNumber(Math.min(currentPage * pageSize, processed.length))} of{' '}
+                        {formatNumber(processed.length)}
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            disabled={currentPage <= 1}
+                            onClick={() => setPage((current) => Math.max(1, current - 1))}
+                        >
+                            <ChevronLeft className="size-3.5" />
+                            Prev
+                        </Button>
+                        <span className="tnum">
+                            Page {formatNumber(currentPage)} of {formatNumber(totalPages)}
+                        </span>
+                        <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            disabled={currentPage >= totalPages}
+                            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                        >
+                            Next
+                            <ChevronRight className="size-3.5" />
+                        </Button>
+                    </div>
                 </div>
             )}
         </div>

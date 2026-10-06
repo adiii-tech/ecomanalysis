@@ -11,6 +11,7 @@ use App\Domain\Access\RoleRegistry;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\ActivityLog;
+use App\Models\AiSetting;
 use App\Models\Benchmark;
 use App\Models\CostSetting;
 use App\Models\Invitation;
@@ -427,6 +428,7 @@ class AdminController extends Controller
         $costs = CostSetting::query()->firstOrCreate(['tenant_id' => $tenant->id]);
         $benchmarks = Benchmark::query()->firstOrCreate(['tenant_id' => $tenant->id]);
         $notifications = NotificationSetting::query()->firstOrNew(['tenant_id' => $tenant->id]);
+        $aiSetting = AiSetting::query()->firstOrNew(['tenant_id' => $tenant->id]);
 
         return ApiResponse::ok([
             'tenant' => [
@@ -493,6 +495,13 @@ class AdminController extends Controller
                 'days_of_cover_threshold' => $benchmarks->days_of_cover_threshold,
                 'monthly_revenue_target' => Money::toRupees($benchmarks->monthly_revenue_target),
             ],
+            'ai_settings' => [
+                'model' => $aiSetting->model,
+                // The key itself is never returned; only whether one is stored.
+                'api_key_set' => filled($aiSetting->api_key),
+                'system_model_default' => (string) config('ai.model', 'claude-opus-5'),
+                'system_key_configured' => filled(config('ai.api_key')),
+            ],
         ]);
     }
 
@@ -544,6 +553,9 @@ class AdminController extends Controller
             'notifications.weekly_review_day' => ['integer', 'min:0', 'max:6'],
             'notifications.monthly_pnl_recipients' => ['array', 'max:20'],
             'notifications.monthly_pnl_recipients.*' => ['email'],
+            'ai_settings' => ['array'],
+            'ai_settings.api_key' => ['nullable', 'string', 'max:255'],
+            'ai_settings.model' => ['nullable', 'string', 'max:64'],
         ]);
 
         $tenant = Tenant::current();
@@ -586,11 +598,24 @@ class AdminController extends Controller
             NotificationSetting::query()->updateOrCreate(['tenant_id' => $tenant->id], $notifications);
         }
 
+        if (isset($validated['ai_settings'])) {
+            $ai = $validated['ai_settings'];
+
+            // Same "blank means keep the stored key" rule as the WhatsApp
+            // token — the field is masked, so the editor never gets the
+            // real value back to resubmit.
+            if (blank($ai['api_key'] ?? null)) {
+                unset($ai['api_key']);
+            }
+
+            AiSetting::query()->updateOrCreate(['tenant_id' => $tenant->id], $ai);
+        }
+
         // Cost settings move every margin number, so every cached widget is stale.
         $cache->bust($tenant->id);
 
         $audited = $validated;
-        unset($audited['notifications']['whatsapp_token']);
+        unset($audited['notifications']['whatsapp_token'], $audited['ai_settings']['api_key']);
 
         activity('admin')->withProperties($audited)->log('settings.updated');
 

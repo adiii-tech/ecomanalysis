@@ -35,6 +35,25 @@ beforeEach(function (): void {
         'computed_at' => now(), 'created_at' => now(), 'updated_at' => now(),
     ]);
 
+    // The drawer's lifetime figures read orders directly rather than the
+    // rollup (sku_daily_rollup caps out at 730 days — see RebuildRollups), so
+    // a test of them needs a real order behind it, not just a rollup row.
+    $this->order = function (Sku $sku, int $daysAgo, int $qty, int $revenue = 0, int $returned = 0): void {
+        $orderId = DB::table('orders')->insertGetId([
+            'tenant_id' => $this->tenant->id, 'source' => 'test', 'external_id' => 'hist-'.uniqid(),
+            'order_number' => '#hist-'.uniqid(), 'placed_at' => $this->today->subDays($daysAgo)->setTimezone('UTC'),
+            'status' => 'delivered', 'payment_mode' => 'prepaid',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        DB::table('order_items')->insert([
+            'tenant_id' => $this->tenant->id, 'order_id' => $orderId, 'sku_id' => $sku->id,
+            'sku_code' => $sku->sku_code, 'qty' => $qty, 'unit_price' => $qty > 0 ? intdiv($revenue, $qty) : 0,
+            'returned_qty' => $returned, 'line_net' => $revenue,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+    };
+
     $this->rows = function (array $params = []): Collection {
         $query = http_build_query([...['window' => 90, 'lead' => 21, 'safety' => 14, 'target' => 60], ...$params]);
 
@@ -158,6 +177,9 @@ it('hands the drawer twelve months of history, netted the same way the table is'
     ($this->stock)($sku, 10);
     ($this->sold)($sku, 0, 12, Money::fromRupees(4800), 2);
     ($this->sold)($sku, 200, 5, Money::fromRupees(2000));
+    // Lifetime reads orders, not the rollup — one order to match each row above.
+    ($this->order)($sku, 0, 12, Money::fromRupees(4800), 2);
+    ($this->order)($sku, 200, 5, Money::fromRupees(2000));
 
     $data = $this->actingAs($this->user)->getJson('/api/restock/sku/'.$sku->id)->assertOk()->json('data');
 

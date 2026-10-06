@@ -578,6 +578,8 @@ function SettingsEditor({
     const [profile, setProfile] = useState(settings.tenant_profile ?? {});
     const [notifications, setNotifications] = useState<Record<string, unknown>>(settings.notifications ?? {});
     const [whatsappToken, setWhatsappToken] = useState('');
+    const [aiSettings, setAiSettings] = useState<Record<string, unknown>>(settings.ai_settings ?? {});
+    const [aiApiKey, setAiApiKey] = useState('');
     const [saving, setSaving] = useState(false);
 
     // Recipient lists are edited as comma-separated text and stored as arrays.
@@ -596,9 +598,11 @@ function SettingsEditor({
                 benchmarks,
                 tenant_profile: profile,
                 notifications: whatsappToken ? { ...notifications, whatsapp_token: whatsappToken } : notifications,
+                ai_settings: aiApiKey ? { ...aiSettings, api_key: aiApiKey } : aiSettings,
             });
             toast.success(response.message);
             setWhatsappToken('');
+            setAiApiKey('');
             onSaved();
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'Could not save.');
@@ -779,6 +783,57 @@ function SettingsEditor({
                             />
                         </div>
                     </div>
+                </div>
+            </ChartCard>
+
+            <ChartCard
+                title="AI"
+                subtitle="Which Anthropic key and model Ask AI and chart insights use"
+                widgetKey="admin.ai_settings"
+            >
+                <div className="space-y-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="space-y-1">
+                            <Label htmlFor="ai_api_key">
+                                Anthropic API key {aiSettings.api_key_set ? '(stored)' : ''}
+                            </Label>
+                            <Input
+                                id="ai_api_key"
+                                type="password"
+                                placeholder={aiSettings.api_key_set ? 'Leave blank to keep' : 'sk-ant-…'}
+                                disabled={!canManage}
+                                value={aiApiKey}
+                                onChange={(e) => setAiApiKey(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="ai_model">Model</Label>
+                            <Select
+                                disabled={!canManage}
+                                value={(aiSettings.model as string) || '__default__'}
+                                onValueChange={(value) =>
+                                    setAiSettings((c) => ({ ...c, model: value === '__default__' ? null : value }))
+                                }
+                            >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__default__">
+                                        System default ({String(aiSettings.system_model_default ?? 'claude-opus-5')})
+                                    </SelectItem>
+                                    <SelectItem value="claude-opus-5">claude-opus-5</SelectItem>
+                                    <SelectItem value="claude-sonnet-5">claude-sonnet-5</SelectItem>
+                                    <SelectItem value="claude-haiku-4-5-20251001">claude-haiku-4-5 (fast &amp; cheap)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                        {aiSettings.api_key_set
+                            ? 'AI usage bills to this key instead of the shared workspace key.'
+                            : aiSettings.system_key_configured
+                              ? 'Using the shared workspace key. Add your own above to bill usage separately.'
+                              : 'No key configured yet — AI features stay unavailable until one is added here or in the environment.'}
+                    </p>
                 </div>
             </ChartCard>
 

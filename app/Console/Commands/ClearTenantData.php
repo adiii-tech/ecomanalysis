@@ -49,7 +49,7 @@ class ClearTenantData extends Command
      */
     public const KEPT_TABLES = [
         'users', 'roles', 'model_has_roles', 'model_has_permissions', 'invitations',
-        'connectors', 'cost_settings', 'benchmarks', 'notification_settings', 'alert_rules',
+        'connectors', 'cost_settings', 'benchmarks', 'notification_settings', 'ai_settings', 'alert_rules',
         'report_schedules', 'report_favourites', 'report_shares', 'saved_views', 'customer_segments',
         'ai_usage_logs', 'activity_log',
     ];
