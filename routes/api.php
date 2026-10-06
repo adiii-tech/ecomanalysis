@@ -448,5 +448,6 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
         Route::get('audit', [AdminController::class, 'audit'])->middleware('permission.widget:admin.audit.view')->name('audit');
         Route::get('settings', [AdminController::class, 'settings'])->middleware('permission.widget:admin.settings.view')->name('settings');
         Route::put('settings', [AdminController::class, 'saveSettings'])->middleware('permission.widget:admin.settings.manage')->name('settings-save');
+        Route::get('backup', [AdminController::class, 'downloadBackup'])->middleware('permission.widget:admin.backup.manage')->name('backup');
     });
 });

@@ -311,9 +311,10 @@ final class PermissionRegistry
                     'benchmarks' => 'Benchmarks',
                     'demo_users' => 'Demo users',
                     'billing' => 'Plan & billing',
+                    'backup' => 'Tenant data backup',
                 ],
                 'exportable' => 'all',
-                'manageable' => ['users', 'permissions', 'roles', 'settings', 'cost_settings', 'benchmarks', 'demo_users', 'billing'],
+                'manageable' => ['users', 'permissions', 'roles', 'settings', 'cost_settings', 'benchmarks', 'demo_users', 'billing', 'backup'],
             ],
             'pii' => [
                 'label' => 'Personal data',

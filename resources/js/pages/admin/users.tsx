@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Copy, KeyRound, Mail, Pencil, RotateCcw, Search, ShieldCheck, UserPlus } from 'lucide-react';
+import { Copy, DatabaseBackup, KeyRound, Mail, Pencil, RotateCcw, Search, ShieldCheck, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppLayout } from '@/layouts/app-layout';
 import { ChartCard } from '@/components/app/chart-card';
@@ -178,6 +178,19 @@ export default function AdminUsers() {
         [users, search],
     );
 
+    // A real file download, so the browser is navigated via a hidden iframe
+    // rather than fetched — the same approach useExport uses, and for the
+    // same reason: this carries the session cookie without buffering a
+    // multi-table SQL dump into JS memory first.
+    function downloadBackup() {
+        toast.info('Preparing backup…', { duration: 2000 });
+        const frame = document.createElement('iframe');
+        frame.style.display = 'none';
+        frame.src = '/api/admin/backup';
+        document.body.appendChild(frame);
+        window.setTimeout(() => frame.remove(), 60_000);
+    }
+
     return (
         <AppLayout title="Admin" description="Users, roles, audit and settings" showFilters={false}>
             <Head title="Admin" />
@@ -192,12 +205,20 @@ export default function AdminUsers() {
                     </TabsList>
                 </Tabs>
 
-                {tab === 'users' && can('admin.users.manage') && (
-                    <Button size="sm" onClick={() => setInviting(true)} className="gap-1.5">
-                        <UserPlus className="size-3.5" />
-                        Invite user
-                    </Button>
-                )}
+                <div className="flex items-center gap-2">
+                    {can('admin.backup.manage') && (
+                        <Button size="sm" variant="outline" onClick={downloadBackup} className="gap-1.5">
+                            <DatabaseBackup className="size-3.5" />
+                            Download backup
+                        </Button>
+                    )}
+                    {tab === 'users' && can('admin.users.manage') && (
+                        <Button size="sm" onClick={() => setInviting(true)} className="gap-1.5">
+                            <UserPlus className="size-3.5" />
+                            Invite user
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {tab === 'users' && (

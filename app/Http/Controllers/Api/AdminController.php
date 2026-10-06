@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Support\Facades\Tenant;
 use App\Support\MetricCache;
 use App\Support\Money;
+use App\Support\TenantBackupExporter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ use Illuminate\Validation\Rules\Password;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AdminController extends Controller
 {
@@ -623,6 +625,26 @@ class AdminController extends Controller
             null,
             message: 'Saved. Margin figures update on the next rollup rebuild — run it now from Connectors, or wait for tonight.',
         );
+    }
+
+    /**
+     * A restorable SQL dump of this tenant's own data — every table scoped to
+     * it, with connector credentials and other encrypted secrets redacted.
+     * Streamed rather than built up front, since a tenant's full history
+     * across forty-odd tables is not something to hold in memory at once.
+     */
+    public function downloadBackup(TenantBackupExporter $exporter): StreamedResponse
+    {
+        $tenant = Tenant::current();
+        $filename = sprintf('%s-backup-%s.sql', Str::slug($tenant->name), now()->format('Y-m-d-His'));
+
+        activity('admin')->log('backup.downloaded');
+
+        return response()->streamDownload(function () use ($exporter, $tenant): void {
+            $handle = fopen('php://output', 'wb');
+            $exporter->export($tenant, $handle);
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'application/sql']);
     }
 
     /**
